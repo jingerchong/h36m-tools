@@ -1,3 +1,9 @@
 matplotlib
 torch
 numpy
+kornia
+cdflib
+tqdm
+logging
+pathlib
+typing

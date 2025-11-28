@@ -8,10 +8,7 @@ from file_io import read_files
 
 
 def clean_action_name(filename: str) -> str:
-    """
-    Keep only alphabetic characters, lowercase.
-    Removes spaces, digits, punctuation, etc.
-    """
+    """Keep only alphabetic characters, lowercase. Removes spaces, digits, punctuation, etc."""
     return "".join(c for c in filename if c.isalpha()).lower()
 
 
