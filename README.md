@@ -33,6 +33,8 @@ data/ raw
     - D3_Angles
       - ...
 
+As a side note, you can look at these files to see what these numbers actually represent. After a bit of digging, I realized that these angels are Cardan/Euler angles in the order of ___ for each angle (labeled in the kseleotn.json). These angels are defined relative to the previous parent angle. Often, the root position (first 3 values) as well as root rotation (next 3 values after) is discarded/ignored when training and evaluating (thru metrics) in motion prediction 
+
 
 ## Preprocessing
 
