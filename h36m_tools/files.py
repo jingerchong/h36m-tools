@@ -6,7 +6,7 @@ from typing import List, Union
 from tqdm import tqdm
 import numpy as np
 
-from utils import DEVICE
+from h36m_tools.metadata import DEVICE
 
 
 def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:

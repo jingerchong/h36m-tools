@@ -3,11 +3,12 @@ import logging
 from kornia.geometry.quaternion import Quaternion
 
 from h36m_tools.rotations import to_quat
+from h36m_tools.metadata import PARENTS, OFFSETS
 
 
 def _fk_quat(quat: torch.Tensor,
-            parents,
-            offsets,
+            parents=PARENTS,
+            offsets=OFFSETS,
             ignore_root=True) -> torch.Tensor:
     """
     Forward kinematics using quaternion rotations, supports arbitrary batch dims.
@@ -27,7 +28,6 @@ def _fk_quat(quat: torch.Tensor,
     B = q.shape[0]
 
     pos = torch.zeros(B, J, 3, device=q.device, dtype=q.dtype)
-
     q = q / q.norm(dim=-1, keepdim=True)
 
     if ignore_root:
@@ -43,17 +43,17 @@ def _fk_quat(quat: torch.Tensor,
         q_p = Quaternion(q[:, parent])    # [B, 4]
         q[:, i] = (q_p * q_i).data
 
-        offset_quat = Quaternion(torch.cat([torch.zeros(B, 1, device=q.device), 
-                                            offsets[i].unsqueeze(0).expand(B, -1)], dim=-1))  # [B, 4]
-        pos[:, i] = pos[:, parent] + (q_p * offset_quat * q_p.conj()).data[..., 1:]  # [B, 3]
+        q_offset = Quaternion(torch.cat([torch.zeros(B, 1, device=q.device), 
+                                         offsets[i].unsqueeze(0).expand(B, -1)], dim=-1))  # [B, 4]
+        pos[:, i] = pos[:, parent] + (q_p * q_offset * q_p.conj()).data[..., 1:]  # [B, 3]
 
     return pos.view(*orig_shape, J, 3)
 
 
 def fk(rot: torch.Tensor,
        rep: str = "quat",
-       parents=None,
-       offsets=None,
+       parents=PARENTS,
+       offsets=OFFSETS,
        ignore_root=True,
        **kwargs) -> torch.Tensor:
     """
