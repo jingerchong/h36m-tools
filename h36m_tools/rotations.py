@@ -1,7 +1,22 @@
 import torch
 import logging
 import kornia.geometry.conversions as Kconv
-from kornia.geometry.conversions import rotation_6d_to_matrix
+
+
+
+def _reorder_euler(euler: torch.Tensor, src_order: str, dst_order: str) -> torch.Tensor:
+    """Reorder Euler angles from src_order to dst_order."""
+    return euler[..., [src_order.lower().index(c) for c in dst_order.lower()]]
+
+
+def _rot6_to_rot9(x):
+    """Convert 6D rotation representation to 3x3 rotation matrix using Gram–Schmidt orthonormalization."""
+    a1 = x[..., 0:3]
+    a2 = x[..., 3:6]
+    b1 = torch.nn.functional.normalize(a1, dim=-1)
+    b2 = torch.nn.functional.normalize(a2 - (b1 * a2).sum(dim=-1, keepdim=True) * b1, dim=-1)
+    b3 = torch.cross(b1, b2, dim=-1)
+    return torch.stack([b1, b2, b3], dim=-1)
 
 
 def quat_to(quat: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
@@ -26,8 +41,9 @@ def quat_to(quat: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     if rep == "expmap":
         out_flat = Kconv.quaternion_to_axis_angle(quat_flat)
     elif rep == "euler":
-        order = kwargs.get("order", "zyx")
-        out_flat = Kconv.quaternion_to_euler_angles(quat_flat, convention=order)
+        w, x, y, z = quat_flat.unbind(-1)
+        euler_xyz = torch.stack(Kconv.euler_from_quaternion(w, x, y, z), dim=-1)
+        out_flat = _reorder_euler(euler_xyz, src_order="xyz", dst_order=kwargs.get("order", "zyx"))
     elif rep == "rot9":
         rotm = Kconv.quaternion_to_rotation_matrix(quat_flat)  # [N, 3, 3]
         out_flat = rotm.reshape(rotm.shape[0], 9)               # [N, 9]
@@ -60,14 +76,14 @@ def to_quat(rot: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     if rep == "expmap":
         quat_flat = Kconv.axis_angle_to_quaternion(rot_flat)
     elif rep == "euler":
-        order = kwargs.get("order", "zyx")
-        quat_flat = Kconv.euler_angles_to_quaternion(rot_flat, convention=order)
+        rot_xyz = _reorder_euler(rot_flat, src_order=kwargs.get("order", "zyx"), dst_order="xyz")
+        roll, pitch, yaw = rot_xyz.unbind(-1) 
+        quat_flat = torch.stack(Kconv.quaternion_from_euler(roll, pitch, yaw)  , dim=-1)
     elif rep == "rot9":
         rotm = rot_flat.view(-1, 3, 3)
         quat_flat = Kconv.rotation_matrix_to_quaternion(rotm)
     elif rep == "rot6":
-        # reconstruct full rotation matrix from 6D representation
-        rotm = rotation_6d_to_matrix(rot_flat)
+        rotm = _rot6_to_rot9(rot_flat)
         quat_flat = Kconv.rotation_matrix_to_quaternion(rotm)
     else:
         raise ValueError(f"Unknown source representation: {rep}")
