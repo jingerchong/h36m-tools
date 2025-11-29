@@ -5,7 +5,7 @@ from kornia.geometry.quaternion import Quaternion
 from h36m_tools.rotations import to_quat
 
 
-def fk_quat(quat: torch.Tensor,
+def _fk_quat(quat: torch.Tensor,
             parents,
             offsets,
             ignore_root=True) -> torch.Tensor:
@@ -73,4 +73,4 @@ def fk(rot: torch.Tensor,
     """
     quat = rot if rep == "quat" else to_quat(rot, rep=rep, **kwargs)
     logging.debug(f"fk() converting {rep} → quat, resulting shape {quat.shape}")
-    return fk_quat(quat, parents=parents, offsets=offsets, ignore_root=ignore_root)
+    return _fk_quat(quat, parents=parents, offsets=offsets, ignore_root=ignore_root)

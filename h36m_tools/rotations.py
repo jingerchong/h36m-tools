@@ -38,7 +38,7 @@ def quat_to(quat: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
         raise ValueError(f"Unknown target representation: '{rep}'")
 
     out = out_flat.view(*orig_shape, out_flat.shape[-1])
-    logging.debug(f"quat_to('{rep}') input {quat.shape} → output {out.shape}")
+    logging.debug(f"quat_to('{rep}'): input {quat.shape} → output {out.shape}")
     return out
 
 
@@ -74,5 +74,5 @@ def to_quat(rot: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     
     quat_flat = quat_flat / quat_flat.norm(dim=-1, keepdim=True)
     quat = quat_flat.view(*orig_shape, 4)
-    logging.debug(f"to_quat('{rep}') input {rot.shape} → output {quat.shape}")
+    logging.debug(f"to_quat('{rep}'): input {rot.shape} → output {quat.shape}")
     return quat
