@@ -4,7 +4,7 @@ from typing import List, Optional, Union, Dict
 from tqdm import tqdm
 import torch
 
-from file_io import read_files  
+from h36m_tools.files import read_files  
 
 
 def clean_action_name(filename: str) -> str:
@@ -12,7 +12,7 @@ def clean_action_name(filename: str) -> str:
     return "".join(c for c in filename if c.isalpha()).lower()
 
 
-def load_raw_data(
+def load_raw(
         root_dir: Union[str, Path] = Path("data/raw"),
         subjects: Optional[List[str]] = None,
         actions: Optional[List[str]] = None,
