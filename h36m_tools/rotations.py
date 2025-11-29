@@ -3,13 +3,12 @@ import logging
 import kornia.geometry.conversions as Kconv
 
 
-
 def _reorder_euler(euler: torch.Tensor, src_order: str, dst_order: str) -> torch.Tensor:
     """Reorder Euler angles from src_order to dst_order."""
     return euler[..., [src_order.lower().index(c) for c in dst_order.lower()]]
 
 
-def _rot6_to_rot9(x):
+def _rot6_to_rot9(x) -> torch.Tensor:
     """Convert 6D rotation representation to 3x3 rotation matrix using Gram–Schmidt orthonormalization."""
     a1 = x[..., 0:3]
     a2 = x[..., 3:6]

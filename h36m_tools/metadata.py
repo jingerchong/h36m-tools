@@ -44,6 +44,7 @@ OFFSETS = torch.tensor([
     [0.0, 0.0, 0.0],            # 31 Site
 ], dtype=torch.float32, device=DEVICE)
 
+
 # Parent indices for each joint, -1 indicates no parent
 PARENTS = [
     -1,     # 0  Hips
@@ -83,6 +84,7 @@ PARENTS = [
     27,     # 30 R_Wrist_End
     30      # 31 Site
 ]
+
 
 # Train/test split of subjects 
 SUBJECTS = {
