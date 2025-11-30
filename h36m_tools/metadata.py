@@ -79,6 +79,55 @@ PARENTS = [
 ]
 
 
+# Names of joints split by kinematic chain
+JOINT_NAMES = [
+    "Hips",            # 0
+    "RightUpLeg",      # 1
+    "RightLeg",        # 2
+    "RightFoot",       # 3
+    "RightToeBase",    # 4
+
+    "LeftUpLeg",       # 5
+    "LeftLeg",         # 6
+    "LeftFoot",        # 7
+    "LeftToeBase",     # 8
+
+    "Spine",           # 9
+    "Spine1",          # 10
+    "Neck",            # 11
+    "Head",            # 12
+
+    "LeftShoulder",    # 13
+    "LeftArm",         # 14
+    "LeftForeArm",     # 15
+    "LeftHand",        # 16
+    "LeftHandThumb",   # 17
+    "L_Wrist_End",     # 18
+
+    "RightShoulder",   # 19
+    "RightArm",        # 20
+    "RightForeArm",    # 21
+    "RightHand",       # 22
+    "RightHandThumb",  # 23
+    "R_Wrist_End"      # 24
+]
+
+
+# Pairs of joints indices (right, left)
+RIGHT_LEFT_JOINTS_IDX = [
+    (1, 5),    # RightUpLeg <-> LeftUpLeg
+    (2, 6),    # RightLeg <-> LeftLeg
+    (3, 7),    # RightFoot <-> LeftFoot
+    (4, 8),    # RightToeBase <-> LeftToeBase
+    (19, 13),  # RightShoulder <-> LeftShoulder
+    (20, 14),  # RightArm <-> LeftArm
+    (21, 15),  # RightForeArm <-> LeftForeArm
+    (22, 16),  # RightHand <-> LeftHand
+    (23, 17),  # RightHandThumb <-> LeftHandThumb
+    (24, 18),  # R_Wrist_End <-> L_Wrist_End
+]
+
+
 # Train/test split of subjects 
 SUBJECTS = {
     "train": ["S1", "S5", "S6", "S7", "S8"],
