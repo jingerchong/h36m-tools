@@ -1,15 +1,16 @@
 import torch
 import logging
 from kornia.geometry.quaternion import Quaternion
+from typing import List
 
 from h36m_tools.rotations import to_quat
 from h36m_tools.metadata import PARENTS, OFFSETS
 
 
 def _fk_quat(quat: torch.Tensor,
-            parents=PARENTS,
-            offsets=OFFSETS,
-            ignore_root=True) -> torch.Tensor:
+             parents: List[int] = PARENTS,
+             offsets: torch.Tensor = OFFSETS,
+             ignore_root: bool = True) -> torch.Tensor:
     """
     Forward kinematics using quaternion rotations, supports arbitrary batch dims.
 
@@ -52,9 +53,9 @@ def _fk_quat(quat: torch.Tensor,
 
 def fk(rot: torch.Tensor,
        rep: str = "quat",
-       parents=PARENTS,
-       offsets=OFFSETS,
-       ignore_root=True,
+       parents: List[int] = PARENTS,
+       offsets: torch.Tensor = OFFSETS,
+       ignore_root: bool = True,
        **kwargs) -> torch.Tensor:
     """
     Unified forward kinematics entry point.
@@ -71,6 +72,6 @@ def fk(rot: torch.Tensor,
     Returns:
         Joint positions [..., J, 3]
     """
-    quat = rot if rep == "quat" else to_quat(rot, rep=rep, **kwargs)
+    quat = to_quat(rot, rep=rep, **kwargs)
     logging.debug(f"fk() converting {rep} → quat, resulting shape {quat.shape}")
     return _fk_quat(quat, parents=parents, offsets=offsets, ignore_root=ignore_root)

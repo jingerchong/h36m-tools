@@ -12,7 +12,6 @@ from h36m_tools.metadata import DEVICE
 def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
     """
     Read multiple files and convert them into PyTorch tensors.
-
     Supported formats:
         - .pt   : saved PyTorch tensor
         - .cdf  : raw H36M CDF file (from original dataset)

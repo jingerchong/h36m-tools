@@ -12,12 +12,11 @@ def clean_action_name(filename: str) -> str:
     return "".join(c for c in filename if c.isalpha()).lower()
 
 
-def load_raw(
-        root_dir: Union[str, Path] = Path("data/raw"),
-        subjects: Optional[List[str]] = None,
-        actions: Optional[List[str]] = None,
-        downsample: int = 2
-    ) -> Dict[str, Dict[str, List[torch.Tensor]]]:
+def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
+             subjects: Optional[List[str]] = None,
+             actions: Optional[List[str]] = None,
+             downsample: int = 2
+             ) -> Dict[str, Dict[str, List[torch.Tensor]]]:
     """
     Load raw H3.6M D3_Angles CDF data, optionally filtering by subjects/actions,
     reshape to [T, J, 3], downsample, and return a nested dictionary:

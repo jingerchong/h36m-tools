@@ -8,19 +8,19 @@ def _reorder_euler(euler: torch.Tensor, src_order: str, dst_order: str) -> torch
     return euler[..., [src_order.lower().index(c) for c in dst_order.lower()]]
 
 
-def _rot6_to_rot9(x) -> torch.Tensor:
+def _rot6_to_rot9(x: torch.Tensor) -> torch.Tensor:
     """Convert 6D rotation representation to 3x3 rotation matrix using Gram–Schmidt orthonormalization."""
     a1 = x[..., 0:3]
     a2 = x[..., 3:6]
     b1 = torch.nn.functional.normalize(a1, dim=-1)
     b2 = torch.nn.functional.normalize(a2 - (b1 * a2).sum(dim=-1, keepdim=True) * b1, dim=-1)
     b3 = torch.cross(b1, b2, dim=-1)
-    return torch.stack([b1, b2, b3], dim=-1)
+    return torch.stack([b1, b2, b3], dim=-2)
 
 
 def quat_to(quat: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     """
-    Convert quaternion [..., 4] to another rotation representation.
+    Convert quaternion [..., 4] to any supported rotation representation.
     
     Args:
         quat: [..., 4] quaternions [w, x, y, z]
@@ -37,7 +37,9 @@ def quat_to(quat: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     quat_flat = torch.nan_to_num(quat.reshape(-1, 4))
     quat_flat = quat_flat / quat_flat.norm(dim=-1, keepdim=True)
 
-    if rep == "expmap":
+    if rep == "quat":
+        out_flat = quat_flat
+    elif rep == "expmap":
         out_flat = Kconv.quaternion_to_axis_angle(quat_flat)
     elif rep == "euler":
         w, x, y, z = quat_flat.unbind(-1)
@@ -59,7 +61,7 @@ def quat_to(quat: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
 
 def to_quat(rot: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     """
-    Convert other rotation representations to quaternion [..., 4].
+    Convert any supported rotation representation to quaternion [..., 4].
     
     Args:
         rot: Tensor of shape [..., ?] depending on rep
@@ -72,11 +74,13 @@ def to_quat(rot: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     orig_shape = rot.shape[:-1]
     rot_flat = rot.reshape(-1, rot.shape[-1])
     
-    if rep == "expmap":
+    if rep == "quat":
+        quat_flat = rot_flat
+    elif rep == "expmap":
         quat_flat = Kconv.axis_angle_to_quaternion(rot_flat)
     elif rep == "euler":
-        rot_xyz = _reorder_euler(rot_flat, src_order=kwargs.get("order", "zyx"), dst_order="xyz")
-        roll, pitch, yaw = rot_xyz.unbind(-1) 
+        euler_xyz = _reorder_euler(rot_flat, src_order=kwargs.get("order", "zyx"), dst_order="xyz")
+        roll, pitch, yaw = euler_xyz.unbind(-1) 
         quat_flat = torch.stack(Kconv.quaternion_from_euler(roll, pitch, yaw)  , dim=-1)
     elif rep == "rot9":
         rotm = rot_flat.view(-1, 3, 3)
@@ -91,3 +95,21 @@ def to_quat(rot: torch.Tensor, rep: str = "expmap", **kwargs) -> torch.Tensor:
     quat = quat_flat.view(*orig_shape, 4)
     logging.debug(f"to_quat('{rep}'): input {rot.shape} → output {quat.shape}")
     return quat
+
+
+def to_euler(rot: torch.Tensor, rep: str = "quat", order: str = "zyx", **kwargs) -> torch.Tensor:
+    """
+    Convert any supported rotation representation to Euler angles [..., 3].
+
+    Args:
+        rot: Tensor of shape [..., ?] representing rotations in one of the supported formats.
+        rep: The rotation representation of the input. One of "quat", "expmap", "euler", "rot6", "rot9".
+        order: Desired Euler angle order for output (default: "zyx").
+        **kwargs: Additional arguments forwarded to converters, e.g., "src_order" if rep=="euler".
+
+    Returns:
+        Tensor of shape [..., 3] with Euler angles in the requested order.
+    """
+    if rep == "euler":
+        return _reorder_euler(rot, src_order=kwargs.get("src_order", "xyz"), dst_order=order)
+    return quat_to(to_quat(rot, rep=rep, **kwargs), rep="euler", dst_order=order)
