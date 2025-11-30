@@ -5,6 +5,7 @@ from tqdm import tqdm
 import torch
 
 from h36m_tools.files import read_files  
+from h36m_tools.metadata import DOWNSAMPLE_FACTOR
 
 
 def _clean_action_name(filename: str) -> str:
@@ -15,7 +16,7 @@ def _clean_action_name(filename: str) -> str:
 def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
              subjects: Optional[List[str]] = None,
              actions: Optional[List[str]] = None,
-             downsample: int = 2
+             downsample: int = DOWNSAMPLE_FACTOR
              ) -> Dict[str, Dict[str, List[torch.Tensor]]]:
     """
     Load raw H3.6M D3_Angles CDF data, optionally filtering by subjects/actions,

@@ -56,7 +56,7 @@ def fk(rot: torch.Tensor,
         rep: input representation ("quat", "expmap", "euler", "rot6", "rot9")
         parents: list[int] length J
         offsets: [J, 3] joint offsets
-        ignore_root: if True, zero root rotation (keep only translation)
+        ignore_root: if True, zero root rotation 
         **kwargs: passed to to_quat() 
 
     Returns:
