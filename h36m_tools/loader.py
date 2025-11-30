@@ -7,7 +7,7 @@ import torch
 from h36m_tools.files import read_files  
 
 
-def clean_action_name(filename: str) -> str:
+def _clean_action_name(filename: str) -> str:
     """Keep only alphabetic characters, lowercase. Removes spaces, digits, punctuation, etc."""
     return "".join(c for c in filename if c.isalpha()).lower()
 
@@ -41,8 +41,8 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
         logging.debug(f"Filtered to subjects: {subjects_upper}, remaining files: {len(input_files)}")
 
     if actions is not None:
-        actions_clean = [clean_action_name(a) for a in actions]
-        input_files = [f for f in input_files if clean_action_name(f.stem) in actions_clean]
+        actions_clean = [_clean_action_name(a) for a in actions]
+        input_files = [f for f in input_files if _clean_action_name(f.stem) in actions_clean]
         logging.debug(f"Filtered to actions: {actions_clean}, remaining files: {len(input_files)}")
 
     logging.info(f"Found {len(input_files)} D3_Angles CDF files to process")
@@ -53,11 +53,11 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
 
     for file, angles in tqdm(zip(input_files, all_angles), desc="Processing angles", total=len(input_files)):
         subject = file.parts[-4].upper()
-        action = clean_action_name(file.stem)
+        action = _clean_action_name(file.stem)
 
         T, total_dims = angles.shape
         J = total_dims // 3
-        angles = angles.reshape(T, J, 3)
+        angles = angles.reshape(T, J, 3)[:, 1:]
 
         if downsample and downsample > 1:
             angles = angles[::downsample]

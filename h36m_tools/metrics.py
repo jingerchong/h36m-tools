@@ -79,3 +79,4 @@ def mpjpe(y_pred: torch.Tensor,
 
     logging.debug(f"MPJPE result shape: {error.shape}, reduce_all={reduce_all}")
     return error
+
