@@ -1,16 +1,16 @@
 import torch
 import logging 
 
-from h36m_tools.rotations import to_euler
+from h36m_tools.rotations import to_quat, quat_to
 from h36m_tools.kinematics import fk
 from h36m_tools.metadata import PARENTS, OFFSETS
 
 
 def mae_l2(y_pred: torch.Tensor,
-           y: torch.Tensor,
+           y_gt: torch.Tensor,
            rep: str = "quat",
            ignore_root: bool = True,
-           keep_time_dim: bool = True,
+           reduce_all: bool = False,
            **kwargs) -> torch.Tensor:
     """
     Compute the mean angular L2 error between predicted and target rotations.
@@ -19,54 +19,63 @@ def mae_l2(y_pred: torch.Tensor,
     the angular difference. Supports ignoring the root joint.
 
     Args:
-        y_pred: Predicted rotations, shape [..., J, ?].
-        y: Ground-truth rotations, shape [..., J, ?].
+        y_pred: Predicted rotations, shape [..., J, D].
+        y_gt: Ground-truth rotations, shape [..., J, D].
         rep: Representation of input rotations ("quat", "euler", "expmap", "rot6", "rot9").
         ignore_root: If True, exclude the root joint from error computation.
-        keep_time_dim: If True, returns per-time-step errors; otherwise returns a scalar mean.
-        **kwargs: Forwarded to `to_euler` for additional options (e.g., src_order).
+        reduce_all: If True, returns scalar; otherwise preserves leading dimensions.
+        **kwargs: Forwarded to conversion functions for additional options (e.g., convention, degrees).
 
     Returns:
-        Tensor of shape [T] if keep_time_dim=True, otherwise scalar.
+        Tensor of shape [...] if reduce_all=False, otherwise scalar.
     """
-    euler_pred = to_euler(y_pred, rep=rep, order="zyx", **kwargs)
-    euler = to_euler(y, rep=rep, order="zyx", **kwargs)
+    quat_pred = to_quat(y_pred, rep=rep, **kwargs)
+    quat_gt = to_quat(y_gt, rep=rep, **kwargs)
+    
+    euler_pred = quat_to(quat_pred, rep="euler", convention="ZYX", **kwargs)
+    euler_gt = quat_to(quat_gt, rep="euler", convention="ZYX", **kwargs)
 
-    diff = torch.remainder(euler - euler_pred + torch.pi, 2 * torch.pi) - torch.pi
+    diff = torch.remainder(euler_gt - euler_pred + torch.pi, 2 * torch.pi) - torch.pi  # [..., J]
     if ignore_root:
-        diff[..., :3] = 0.0
+        diff[..., 0, :] = 0.0  
 
-    error = torch.mean(diff.norm(dim=-1), dim=0)  # L2 norm over joints, mean over batch
-    error = error if keep_time_dim else error.mean()
-    logging.debug(f"MAE L2 result shape: {error.shape}, keep_time_dim={keep_time_dim}")
+    error = diff.norm(dim=-1).mean(dim=-1)  # [...]
+    if reduce_all:
+        error = error.mean()  # scalar
+    
+    logging.debug(f"MAE L2 result shape: {error.shape}, reduce_all={reduce_all}")
     return error
 
 
 def mpjpe(y_pred: torch.Tensor,
-          y: torch.Tensor,
+          y_gt: torch.Tensor,
           rep: str = "quat",
           ignore_root: bool = True,
-          keep_time_dim: bool = True,
+          reduce_all: bool = False,
           **kwargs) -> torch.Tensor:
     """
-    Compute Mean Per-Joint Position Error (MPJPE) between predicted and target poses.
-    Inputs are converted to 3D joint positions using forward kinematics.
+    Compute Mean Per-Joint Position Error (MPJPE) between predicted and ground-truth poses.
+    Converts inputs to 3D joint positions using differentiable FK.
 
     Args:
-        y_pred: Predicted rotations/poses, shape [..., J, ?].
-        y: Ground-truth rotations/poses, shape [..., J, ?].
-        rep: Representation of input rotations ("quat", "euler", "expmap", "rot6", "rot9").
-        ignore_root: If True, zero out the root joint in FK before computing error.
-        keep_time_dim: If True, returns per-time-step errors; otherwise returns a scalar mean.
-        **kwargs: Forwarded to `fk` for additional options.
+        y_pred: Predicted rotations/poses, shape [..., J, D].
+        y_gt: Ground-truth rotations/poses, shape [..., J, D].
+        rep: Rotation representation ("quat", "euler", "expmap", "rot6", "rot9").
+        ignore_root: If True, zero out root rotation before FK.
+        reduce_all: If True, return scalar; otherwise preserve leading dimensions.
+        **kwargs: Forwarded to `fk` (e.g., convention, degrees).
 
     Returns:
-        Tensor of shape [T] if keep_time_dim=True, otherwise scalar.
+        Tensor of shape [...] if reduce_all=False, otherwise scalar.
     """
     pos_pred = fk(y_pred, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
-    pos = fk(y, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
+    pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
 
-    error = (pos - pos_pred).norm(dim=-1).mean(dim=[0, 2])  # norm over XYZ, mean over batch and joints
-    error = error if keep_time_dim else error.mean()
-    logging.debug(f"MPJPE result shape: {error.shape}, keep_time_dim={keep_time_dim}")
+    diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
+
+    error = diff.mean(dim=-1)                  # [...]
+    if reduce_all:
+        error = error.mean()
+
+    logging.debug(f"MPJPE result shape: {error.shape}, reduce_all={reduce_all}")
     return error

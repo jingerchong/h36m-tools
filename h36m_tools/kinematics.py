@@ -1,6 +1,6 @@
 import torch
 import logging
-from kornia.geometry.quaternion import Quaternion
+import roma
 from typing import List
 
 from h36m_tools.rotations import to_quat
@@ -14,41 +14,31 @@ def _fk_quat(quat: torch.Tensor,
     """
     Forward kinematics using quaternion rotations, supports arbitrary batch dims.
 
-    Args:
-        quat: [..., J, 4] quaternions (w, x, y, z)
-        parents: list[int] length J
-        offsets: [J, 3] tensor
-        ignore_root: zero root rotation
-
-    Returns:
-        Tensor [..., J, 3] joint positions
+    Args: 
+        quat: [..., J, 4] quaternions in XYZW format (Roma convention)
+        parents: list[int] length J 
+        offsets: [J, 3] tensor 
+        ignore_root: zero root rotation 
+ 
+    Returns: 
+        Tensor [..., J, 3] joint positions 
     """
-    orig_shape = quat.shape[:-2]
-    J = quat.shape[-2]
-    q = quat.reshape(-1, J, 4)                 # [B, J, 4], B = product of batch dims
-    B = q.shape[0]
-
-    pos = torch.zeros(B, J, 3, device=q.device, dtype=q.dtype)
-    q = q / q.norm(dim=-1, keepdim=True)
-
-    if ignore_root:
-        q[:, 0, :] = 0.0
-        q[:, 0, 0] = 1.0
-
-    for i in range(1, J):
-        parent = parents[i]
-        if parent == -1:
-            continue
-
-        q_i = Quaternion(q[:, i])         # [B, 4]
-        q_p = Quaternion(q[:, parent])    # [B, 4]
-        q[:, i] = (q_p * q_i).data
-
-        q_offset = Quaternion(torch.cat([torch.zeros(B, 1, device=q.device), 
-                                         offsets[i].unsqueeze(0).expand(B, -1)], dim=-1))  # [B, 4]
-        pos[:, i] = pos[:, parent] + (q_p * q_offset * q_p.conj()).data[..., 1:]  # [B, 3]
-
-    return pos.view(*orig_shape, J, 3)
+    quat = roma.quat_normalize(quat)  # [..., J, 4]
+    pos = torch.zeros_like(quat[..., :3])  # [..., J, 3]
+ 
+    if ignore_root: 
+        quat[..., 0, :] = roma.quat_identity(size=quat.shape[:-2], dtype=quat.dtype, device=quat.device)  # [..., 4]
+ 
+    for i in range(1, quat.shape[-2]): 
+        parent = parents[i] 
+        if parent == -1: 
+            continue 
+        # Accumulate global rotation from parent
+        quat[..., i, :] = roma.quat_product(quat[..., parent, :], quat[..., i, :])  # [..., 4]
+        # Rotate bone offset by parent rotation and add to parent position
+        pos[..., i, :] = pos[..., parent, :] + roma.quat_action(quat[..., parent, :], offsets[i])  # [..., 3]
+ 
+    return pos
 
 
 def fk(rot: torch.Tensor,
@@ -67,7 +57,7 @@ def fk(rot: torch.Tensor,
         parents: list[int] length J
         offsets: [J, 3] joint offsets
         ignore_root: if True, zero root rotation (keep only translation)
-        **kwargs: passed to to_quaternion()
+        **kwargs: passed to to_quat() 
 
     Returns:
         Joint positions [..., J, 3]

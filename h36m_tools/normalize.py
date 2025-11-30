@@ -1,70 +1,65 @@
 import torch
 import logging
-from typing import Tuple
+from typing import Tuple, List
 
 
-def compute_stats(data_list, eps=1e-8) -> Tuple[torch.Tensor, torch.Tensor]:
+def compute_stats(data_list: List[torch.Tensor], eps: float = 1e-8) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Compute global mean and std over a list of tensors [T, J, D].
+    Compute global mean and std over a list of tensors.
 
     Args:
-        data_list: list of tensors, each [T_i, J, D]
-        eps: threshold for warning about small std values
+        data_list: List of tensors, each [T_i, J, D]
+        eps: Minimum std threshold (for numerical stability)
 
     Returns:
         mean: [J, D] tensor
-        std: [J, D] tensor
+        std: [J, D] tensor (clamped to be >= eps)
     """
-    all_frames = torch.cat([d.reshape(-1, *d.shape[1:]) for d in data_list], dim=0)  # [total_frames, J, D]
-    mean = all_frames.mean(dim=0)
-    std = all_frames.std(dim=0, unbiased=False)
+    all_frames = torch.cat(data_list, dim=0)  # [total_frames, J, D]
+    mean = all_frames.mean(dim=0)  # [J, D]
+    std = all_frames.std(dim=0, unbiased=False)  # [J, D]
     
     small_std_mask = std < eps
-    if torch.any(small_std_mask):
-        idxs = torch.nonzero(small_std_mask, as_tuple=False)
+    if small_std_mask.any():
+        n_small = small_std_mask.sum().item()
         min_std = std[small_std_mask].min().item()
-        logging.warning(f"{idxs.shape[0]} dims have std < {eps:.1e}. "
-            f"Smallest std: {min_std:.2e}. Indices: {idxs.tolist()}")
+        logging.warning(f"{n_small} dimension(s) have std < {eps:.1e}. Smallest std: {min_std:.2e}. Clamping to {eps}.")
     std = std.clamp(min=eps)
 
-    logging.debug(f"compute_stats: concatenated shape {all_frames.shape}, mean shape {mean.shape}, std shape {std.shape}")
+    logging.debug(f"compute_stats: {len(data_list)} sequences, "
+                  f"total {all_frames.shape[0]} frames → mean/std shape {mean.shape}")
     return mean, std
-
-
-def _expand_for_batch(stat: torch.Tensor, data: torch.Tensor) -> torch.Tensor:
-    """Expand [J, D] to broadcast over leading batch dims of data [..., J, D]."""
-    return stat.view((1,) * (data.ndim - 2) + stat.shape)
 
 
 def normalize(data: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
     """
-    Normalize a tensor using provided mean/std. Supports arbitrary leading batch dims.
+    Normalize data using z-score normalization.
 
     Args:
-        data: [..., J, D] tensor
-        mean: [J, D]
-        std: [J, D]
+        data: [..., J, D] tensor with arbitrary batch dimensions
+        mean: [J, D] normalization mean
+        std: [J, D] normalization std
 
     Returns:
-        normalized data: [..., J, D]
+        Normalized data: [..., J, D]
     """
-    norm_data = (data - _expand_for_batch(mean, data)) / _expand_for_batch(std, data)
-    logging.debug(f"normalize: input {data.shape} → output {norm_data.shape}")
-    return norm_data
+    normalized = (data - mean) / std
+    logging.debug(f"normalize: {data.shape} → {normalized.shape}")
+    return normalized
 
 
 def unnormalize(data: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
     """
-    Reverse normalization. Supports arbitrary leading batch dims.
+    Reverse z-score normalization.
 
     Args:
-        data: [..., J, D] normalized tensor
-        mean: [J, D]
-        std: [J, D]
+        data: [..., J, D] normalized tensor with arbitrary batch dimensions
+        mean: [J, D] normalization mean
+        std: [J, D] normalization std
 
     Returns:
-        unnormalized data: [..., J, D]
+        Unnormalized data: [..., J, D]
     """
-    unnorm_data = data * _expand_for_batch(std, data) + _expand_for_batch(mean, data)
-    logging.debug(f"unnormalize: input {data.shape} → output {unnorm_data.shape}")
-    return unnorm_data
+    unnormalized = data * std + mean
+    logging.debug(f"unnormalize: {data.shape} → {unnormalized.shape}")
+    return unnormalized
