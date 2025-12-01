@@ -26,8 +26,7 @@ def compute_stats(data_list: List[torch.Tensor], eps: float = 1e-8) -> Tuple[tor
     if small_std_mask.any():
         n_small = small_std_mask.sum().item()
         min_std = std[small_std_mask].min().item()
-        logger.warning(f"{n_small} dimension(s) have std < {eps:.1e}. Smallest std: {min_std:.2e}. Clamping to {eps}.")
-    std = std.clamp(min=eps)
+        logger.warning(f"{n_small} dimension(s) have std < {eps:.1e}. Smallest std: {min_std:.2e}.")
 
     logger.debug(f"compute_stats: {len(data_list)} sequences, "
                   f"total {all_frames.shape[0]} frames -> mean/std shape {mean.shape}")
