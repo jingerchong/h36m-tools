@@ -129,10 +129,13 @@ RIGHT_LEFT_JOINTS_IDX = [
 
 
 # Train/test split of subjects 
-SUBJECTS = {
+PROTOCOL = {
     "train": ["S1", "S5", "S6", "S7", "S8"],
     "test": ["S9", "S11"]
 }
+
+
+STATIC_JOINTS = (0, 17, 18, 23, 24)
 
 
 DOWNSAMPLE_FACTOR = 2
