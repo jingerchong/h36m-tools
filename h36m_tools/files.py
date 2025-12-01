@@ -1,8 +1,9 @@
 from pathlib import Path
 import cdflib
+import json
 import torch
 import logging
-from typing import List, Union
+from typing import List, Union, Any
 from tqdm import tqdm
 import numpy as np
 
@@ -64,3 +65,25 @@ def save_tensor(path: Union[str, Path], tensor: torch.Tensor):
         logging.debug(f"Saved tensor shape: {tensor.shape} → {path}")
     except Exception as e:
         logging.error(f"Failed to save tensor to {path}: {e}")
+
+
+def load_tensor(path: Union[str, Path]) -> torch.Tensor:
+    """
+    Load a PyTorch tensor from a .pt file.
+
+    Args:
+        path (str | Path): Path to the .pt file.
+
+    Returns:
+        torch.Tensor: Loaded tensor.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Tensor file not found: {path}")
+    try:
+        tensor = torch.load(path, map_location=DEVICE)
+        logging.debug(f"Loaded tensor shape: {tensor.shape} ← {path} on {DEVICE}")
+        return tensor
+    except Exception as e:
+        logging.error(f"Failed to load tensor from {path}: {e}")
+        raise

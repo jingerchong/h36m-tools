@@ -1,78 +1,75 @@
 import torch
-import logging
 from typing import Iterable, Union
 
 
 def create_dim_mask(selected_dims: Iterable[int], total_dims: int) -> torch.BoolTensor:
     """
     Create a boolean mask of length total_dims where selected dims = True.
-
-    Args:
-        selected_dims: List of integers representing the selected dimensions to be marked as True in the mask.
-        total_dims: Total number of dimensions to create a mask for.
-
-    Returns:
-        Tensor of shape [total_dims] with True for selected dims, False otherwise.
     """
-    if not all(isinstance(dim, int) for dim in selected_dims):
-        raise ValueError(f"All elements of selected_dims must be integers.")
-    if any(dim < 0 or dim >= total_dims for dim in selected_dims):
-        raise ValueError(f"All elements of selected_dims must be in the range [0, {total_dims - 1}]")
-
     mask = torch.zeros(total_dims, dtype=torch.bool)
-    mask[selected_dims] = True
-    logging.debug(f"create_dim_mask: Created mask for selected dims {selected_dims} → mask shape {mask.shape}")
+    mask[list(selected_dims)] = True
     return mask
 
 
-def remove_dims(seq: torch.Tensor, mask: torch.BoolTensor) -> torch.Tensor:
+def remove_dims(tensor: torch.Tensor,
+                mask: torch.BoolTensor,
+                axis: int = -1) -> torch.Tensor:
     """
-    Remove dims where mask == True.
+    Remove dimensions from a tensor at positions specified by a boolean mask along a given axis.
 
     Args:
-        seq: Input tensor with shape [..., D]
-        mask: Boolean mask of shape [D] where True values indicate dimensions to be removed.
+        tensor: Input tensor.
+        mask: Boolean mask of length equal to tensor.shape[axis]. True dims are removed.
+        axis: Axis along which to remove dimensions. Default: -1.
 
     Returns:
-        Tensor with shape [..., D_remaining] where dimensions marked by mask are removed.
+        Tensor with specified dims removed.
     """
-    assert seq.shape[-1] == mask.numel(), "Mask length must match the last dimension of the sequence."
-    
-    out = seq[..., ~mask] 
-    logging.debug(f"remove_dims: Removed dims with mask {mask.sum().item()} True values, "
-                  f"input shape {seq.shape} → output shape {out.shape}")
-    return out
+    assert tensor.shape[axis] == mask.numel(), "Mask length must match tensor size along specified dim"
+    idx = ~mask
+    return torch.index_select(tensor, axis, idx.nonzero(as_tuple=True)[0])
 
 
-def add_dims(seq: torch.Tensor,
+def add_dims(tensor: torch.Tensor,
              mask: torch.BoolTensor,
-             fill_values: Union[float, torch.Tensor] = 0.0) -> torch.Tensor:
+             fill_values: Union[float, torch.Tensor] = 0.0,
+             axis: int = -1) -> torch.Tensor:
     """
-    Add dims back into the sequence at positions where mask == True.
+    Add dimensions into a tensor at positions specified by a boolean mask along a given axis.
 
     Args:
-        seq: Tensor with shape [..., D_kept] (kept dimensions).
-        mask: Boolean mask with shape [D_total] specifying where dims should be added.
-        fill_values: Scalar or tensor to fill the added dimensions. Default is 0.0.
+        tensor: Tensor with shape [..., D_kept, ...].
+        mask: Boolean mask of length total_dims. True dims are added, False dims come from tensor.
+        fill_values: Scalar or tensor to fill added dimensions.
+        axis: Axis along which to add dimensions. Default: -1.
 
     Returns:
-        Tensor with shape [..., D_total] after adding back the missing dimensions.
+        Tensor with added dimensions.
     """
-    assert seq.shape[-1] == mask.numel(), "Mask length must match the last dimension of the sequence."
+    total_dims = mask.numel()
+    kept_count = (~mask).sum().item()
+    
+    if axis < 0:
+        axis = tensor.ndim + axis
+    
+    assert tensor.shape[axis] == kept_count, \
+        f"Tensor has {tensor.shape[axis]} dims along axis {axis}, but mask indicates {kept_count} kept dims"
+    
+    out_shape = list(tensor.shape)
+    out_shape[axis] = total_dims
+    out = torch.empty(*out_shape, dtype=tensor.dtype, device=tensor.device)
 
-    D_total = mask.numel()
-    out = torch.empty(seq.shape[:-1] + (D_total,), dtype=seq.dtype, device=seq.device)
+    kept_idx = (~mask).nonzero(as_tuple=True)[0]
+    out.index_copy_(axis, kept_idx, tensor)
 
-    out[..., ~mask] = seq
-
+    add_idx = mask.nonzero(as_tuple=True)[0]
     if isinstance(fill_values, torch.Tensor):
-        assert fill_values.shape == out[..., mask].shape, \
-            f"Shape of fill_values tensor {fill_values.shape} must match shape of the masked output {out[..., mask].shape}."
-        fill = fill_values
+        expected_shape = list(out_shape)
+        expected_shape[axis] = add_idx.numel()
+        assert fill_values.shape == tuple(expected_shape), \
+            f"fill_values shape {fill_values.shape} does not match expected {tuple(expected_shape)}"
+        out.index_copy_(axis, add_idx, fill_values)
     else:
-        fill = torch.full(out[..., mask].shape, fill_values, dtype=seq.dtype, device=seq.device)
-    out[..., mask] = fill
+        out.index_fill_(axis, add_idx, fill_values)
 
-    logging.debug(f"add_dims: input shape {seq.shape}, mask shape {mask.shape}, output shape {out.shape}, "
-                  f"filled {mask.sum().item()} dims with {fill_values}")
     return out

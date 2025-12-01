@@ -8,14 +8,7 @@ from h36m_tools.files import read_files
 from h36m_tools.metadata import DOWNSAMPLE_FACTOR
 
 
-def _clean_action_name(filename: str) -> str:
-    """Keep only alphabetic characters, lowercase. Removes spaces, digits, punctuation, etc."""
-    return "".join(c for c in filename if c.isalpha()).lower()
-
-
 def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
-             subjects: Optional[List[str]] = None,
-             actions: Optional[List[str]] = None,
              downsample: int = DOWNSAMPLE_FACTOR
              ) -> Dict[str, Dict[str, List[torch.Tensor]]]:
     """
@@ -36,25 +29,13 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
     if not input_files:
         raise FileNotFoundError("No D3_Angles CDF files found")
 
-    if subjects is not None:
-        subjects_upper = [s.upper() for s in subjects]
-        input_files = [f for f in input_files if f.parts[-4].upper() in subjects_upper]
-        logging.debug(f"Filtered to subjects: {subjects_upper}, remaining files: {len(input_files)}")
-
-    if actions is not None:
-        actions_clean = [_clean_action_name(a) for a in actions]
-        input_files = [f for f in input_files if _clean_action_name(f.stem) in actions_clean]
-        logging.debug(f"Filtered to actions: {actions_clean}, remaining files: {len(input_files)}")
-
     logging.info(f"Found {len(input_files)} D3_Angles CDF files to process")
-
     all_angles = read_files(input_files)
-
     data: Dict[str, Dict[str, List[torch.Tensor]]] = {}
 
     for file, angles in tqdm(zip(input_files, all_angles), desc="Processing angles", total=len(input_files)):
         subject = file.parts[-4].upper()
-        action = _clean_action_name(file.stem)
+        action = "".join(c for c in file.stem if c.isalpha()).lower()
 
         T, total_dims = angles.shape
         J = total_dims // 3
