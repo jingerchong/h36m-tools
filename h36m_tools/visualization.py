@@ -12,7 +12,7 @@ from h36m_tools.metadata import JOINT_NAMES, RIGHT_LEFT_JOINTS_IDX, PARENTS, DOW
 from h36m_tools.kinematics import fk
 
 
-PoseData = Union[np.ndarray, torch.Tensor]
+RotData = Union[np.ndarray, torch.Tensor]
 
 
 def _get_right_joints(right_left_joints_idx: List[Tuple[int, int]] = RIGHT_LEFT_JOINTS_IDX) -> List[int]:
@@ -20,14 +20,11 @@ def _get_right_joints(right_left_joints_idx: List[Tuple[int, int]] = RIGHT_LEFT_
     return [r for r, _ in right_left_joints_idx]
 
 
-def _to_numpy_pos(data: PoseData, rep: str, **kwargs: Any) -> np.ndarray:
+def _to_numpy_pos(data: RotData, rep: str, **kwargs: Any) -> np.ndarray:
     """Convert rot/pos → numpy positions [T, J, 3]."""
-    arr = data.detach().cpu().numpy() if torch.is_tensor(data) else np.asarray(data)
-    if rep != "pos":
-        data_t = torch.as_tensor(data, dtype=torch.float32)
-        pos = fk(data_t, rep=rep, **kwargs)
-        logging.debug(f"_to_numpy_pos: FK {rep} → pos, shape {pos.shape}")
-        arr = pos.detach().cpu().numpy()
+    data_t = torch.as_tensor(data, dtype=torch.float32)
+    pos = fk(data_t, rep=rep, **kwargs)
+    arr = pos.detach().cpu().numpy()
     arr = arr.copy()
     arr[..., [1, 2]] = arr[..., [2, 1]]
     return arr
@@ -113,8 +110,8 @@ def _update_joint_labels(ax: plt.Axes,
     return text_objs
 
 
-def plot_frames(sequences: Union[PoseData, List[PoseData]],
-                rep: str = "pos",
+def plot_frames(sequences: Union[RotData, List[RotData]],
+                rep: str = "quat",
                 title: str = "",
                 parents: List[int] = PARENTS,
                 right_left_joints_idx=RIGHT_LEFT_JOINTS_IDX,
@@ -170,9 +167,9 @@ def plot_frames(sequences: Union[PoseData, List[PoseData]],
     return fig, ax
 
 
-def animate_frames(pred: PoseData,
-                   rep: str = "pos",
-                   gt: Optional[PoseData] = None,
+def animate_frames(pred: RotData,
+                   rep: str = "quat",
+                   gt: Optional[RotData] = None,
                    parents: List[int] = PARENTS,
                    right_left_joints_idx=RIGHT_LEFT_JOINTS_IDX,
                    fps: int = DOWNSAMPLED_FPS,
