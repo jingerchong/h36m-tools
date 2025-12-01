@@ -26,7 +26,7 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
         downsample (int): Factor to downsample temporal frames.
 
     Returns:
-        dict: Nested dictionary of tensors keyed by subject → action → list of tensors
+        dict: Nested dictionary of tensors keyed by subject -> action -> list of tensors
     """
     input_files = list(Path(root_dir).rglob("**/MyPoseFeatures/D3_Angles/*.cdf"))
     if not input_files:

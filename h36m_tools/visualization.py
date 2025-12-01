@@ -22,7 +22,7 @@ def _get_right_joints(right_left_joints_idx: List[Tuple[int, int]] = RIGHT_LEFT_
 
 
 def _to_numpy_pos(data: RotData, rep: str, **kwargs: Any) -> np.ndarray:
-    """Convert rot/pos → numpy positions [T, J, 3]."""
+    """Convert rot/pos -> numpy positions [T, J, 3]."""
     data_t = torch.as_tensor(data, dtype=torch.float32)
     pos = fk(data_t, rep=rep, **kwargs)
     arr = pos.detach().cpu().numpy()

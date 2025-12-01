@@ -30,7 +30,7 @@ def compute_stats(data_list: List[torch.Tensor], eps: float = 1e-8) -> Tuple[tor
     std = std.clamp(min=eps)
 
     logger.debug(f"compute_stats: {len(data_list)} sequences, "
-                  f"total {all_frames.shape[0]} frames → mean/std shape {mean.shape}")
+                  f"total {all_frames.shape[0]} frames -> mean/std shape {mean.shape}")
     return mean, std
 
 
@@ -47,7 +47,7 @@ def normalize(data: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torc
         Normalized data: [..., J, D]
     """
     normalized = (data - mean) / std
-    logger.debug(f"normalize: {data.shape} → {normalized.shape}")
+    logger.debug(f"normalize: {data.shape} -> {normalized.shape}")
     return normalized
 
 
@@ -64,5 +64,5 @@ def unnormalize(data: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> to
         Unnormalized data: [..., J, D]
     """
     unnormalized = data * std + mean
-    logger.debug(f"unnormalize: {data.shape} → {unnormalized.shape}")
+    logger.debug(f"unnormalize: {data.shape} -> {unnormalized.shape}")
     return unnormalized

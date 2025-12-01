@@ -66,5 +66,5 @@ def fk(rot: torch.Tensor,
         Joint positions [..., J, 3]
     """
     quat = to_quat(rot, rep=rep, **kwargs)
-    logger.debug(f"fk() converting {rep} → quat, resulting shape {quat.shape}")
+    logger.debug(f"fk() converting {rep} -> quat, resulting shape {quat.shape}")
     return _fk_quat(quat, parents=parents, offsets=offsets, ignore_root=ignore_root)
