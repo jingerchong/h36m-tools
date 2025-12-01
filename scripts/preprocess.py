@@ -62,9 +62,12 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--downsample", type=int, default=DOWNSAMPLE_FACTOR, help="Downsample factor")
     parser.add_argument("--convention", type=str, default="ZYX", help="Target Euler angle convention")
     parser.add_argument("--degrees", action="store_true", help="If set, target Euler angles returned as degrees")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(level=log_level, format="%(levelname)s:%(name)s:%(message)s")
+
     preprocess(args.input, args.output, rep=args.rep, downsample=args.downsample,
                convention=args.convention, degrees=args.degrees)

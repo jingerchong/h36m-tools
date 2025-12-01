@@ -6,6 +6,9 @@ from h36m_tools.kinematics import fk
 from h36m_tools.metadata import PARENTS, OFFSETS
 
 
+logger = logging.getLogger(__name__)
+
+
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
            rep: str = "quat",
@@ -43,7 +46,7 @@ def mae_l2(y_pred: torch.Tensor,
     if reduce_all:
         error = error.mean()  # scalar
     
-    logging.debug(f"MAE L2 result shape: {error.shape}, reduce_all={reduce_all}")
+    logger.debug(f"MAE L2 result shape: {error.shape}, reduce_all={reduce_all}")
     return error
 
 
@@ -77,6 +80,6 @@ def mpjpe(y_pred: torch.Tensor,
     if reduce_all:
         error = error.mean()
 
-    logging.debug(f"MPJPE result shape: {error.shape}, reduce_all={reduce_all}")
+    logger.debug(f"MPJPE result shape: {error.shape}, reduce_all={reduce_all}")
     return error
 

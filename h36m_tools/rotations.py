@@ -3,6 +3,9 @@ import logging
 import roma
 
 
+logger = logging.getLogger(__name__)
+
+
 def quat_to(quat: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
     """
     Convert quaternion to any supported rotation representation.
@@ -41,7 +44,7 @@ def quat_to(quat: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
     else:
         raise ValueError(f"Unknown target representation: '{rep}'")
 
-    logging.debug(f"quat_to('{rep}'): input {quat.shape} → output {out.shape}")
+    logger.debug(f"quat_to('{rep}'): input {quat.shape} → output {out.shape}")
     return out
 
 
@@ -82,5 +85,5 @@ def to_quat(rot: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
     else:
         raise ValueError(f"Unknown source representation: '{rep}'")
 
-    logging.debug(f"to_quat('{rep}'): input {rot.shape} → output {quat.shape}")
+    logger.debug(f"to_quat('{rep}'): input {rot.shape} → output {quat.shape}")
     return quat

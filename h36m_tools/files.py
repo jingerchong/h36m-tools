@@ -1,13 +1,15 @@
 from pathlib import Path
 import cdflib
-import json
 import torch
 import logging
-from typing import List, Union, Any
+from typing import List, Union
 from tqdm import tqdm
 import numpy as np
 
 from h36m_tools.metadata import DEVICE
+
+
+logger = logging.getLogger(__name__)
 
 
 def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
@@ -39,12 +41,12 @@ def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
                 pose_np = np.loadtxt(file, delimiter=",", dtype=np.float32)
                 outputs.append(torch.tensor(pose_np, device=DEVICE))
             else:
-                logging.error(f"Skipped unsupported file type: {file}")
+                logger.error(f"Skipped unsupported file type: {file}")
                 continue
-            logging.debug(f"Loaded {file} → tensor shape: {outputs[-1].shape}")
+            logger.debug(f"Loaded {file} → tensor shape: {outputs[-1].shape}")
 
         except Exception as e:
-            logging.error(f"Failed to read {file}: {e}")
+            logger.error(f"Failed to read {file}: {e}")
             continue
 
     return outputs
@@ -62,9 +64,9 @@ def save_tensor(path: Union[str, Path], tensor: torch.Tensor):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(tensor, path)
-        logging.debug(f"Saved tensor shape: {tensor.shape} → {path}")
+        logger.debug(f"Saved tensor shape: {tensor.shape} → {path}")
     except Exception as e:
-        logging.error(f"Failed to save tensor to {path}: {e}")
+        logger.error(f"Failed to save tensor to {path}: {e}")
 
 
 def load_tensor(path: Union[str, Path]) -> torch.Tensor:
@@ -82,8 +84,8 @@ def load_tensor(path: Union[str, Path]) -> torch.Tensor:
         raise FileNotFoundError(f"Tensor file not found: {path}")
     try:
         tensor = torch.load(path, map_location=DEVICE)
-        logging.debug(f"Loaded tensor shape: {tensor.shape} ← {path} on {DEVICE}")
+        logger.debug(f"Loaded tensor shape: {tensor.shape} ← {path} on {DEVICE}")
         return tensor
     except Exception as e:
-        logging.error(f"Failed to load tensor from {path}: {e}")
+        logger.error(f"Failed to load tensor from {path}: {e}")
         raise

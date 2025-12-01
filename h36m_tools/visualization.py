@@ -13,6 +13,7 @@ from h36m_tools.kinematics import fk
 
 
 RotData = Union[np.ndarray, torch.Tensor]
+logger = logging.getLogger(__name__)
 
 
 def _get_right_joints(right_left_joints_idx: List[Tuple[int, int]] = RIGHT_LEFT_JOINTS_IDX) -> List[int]:
@@ -157,10 +158,10 @@ def plot_frames(sequences: Union[RotData, List[RotData]],
     if save_path:
         plt.savefig(save_path, dpi=150)
         plt.close(fig)
-        logging.debug(f"plot_frames: saved figure to {save_path}")
+        logger.debug(f"plot_frames: saved figure to {save_path}")
     elif show:
         plt.show()
-        logging.debug(f"plot_frames: displayed figure for {len(sequences)} sequence(s)")
+        logger.debug(f"plot_frames: displayed figure for {len(sequences)} sequence(s)")
     else:
         plt.close(fig)
 
@@ -235,5 +236,5 @@ def animate_frames(pred: RotData,
 
     anim = FuncAnimation(fig, update, frames=pred_pos.shape[0], interval=1000 / fps, blit=False) 
     plt.close(fig)  
-    logging.debug(f"animate_frames: created animation for {pred_pos.shape[0]} frames at {fps} fps")  
+    logger.debug(f"animate_frames: created animation for {pred_pos.shape[0]} frames at {fps} fps")  
     return anim
