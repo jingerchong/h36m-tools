@@ -27,6 +27,7 @@ def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
         list[torch.Tensor]: List of tensors loaded from each input file, in original order.
     """
     outputs = []
+    
 
     for file in tqdm(inputs, desc="Reading files"):
         suffix = Path(file).suffix.lower()
@@ -91,26 +92,3 @@ def load_tensor(path: Union[str, Path]) -> torch.Tensor:
         raise
 
 
-def get_rep_dir(processed_dir: Path, rep: str, convention: str | None = None, degrees: bool = False) -> Path:
-    """
-    Return the directory path for a given rotation representation,
-    creating it if it does not exist. Handles special naming for Euler angles.
-
-    Args:
-        processed_dir: Base directory for processed data.
-        rep: Rotation representation name, e.g., "expmap", "quat", "euler".
-        convention: Euler convention (only used if rep=="euler"), e.g., "ZXY".
-        degrees: If True and rep=="euler", append "deg"; else "rad".
-
-    Returns:
-        Path object pointing to the directory.
-        The directory is created if it does not exist.
-    """
-    if rep.lower() == "euler":
-        conv = convention if convention is not None else "ZXY"
-        rep_folder = f"{rep}_{conv}_{'deg' if degrees else 'rad'}"
-    else:
-        rep_folder = rep
-    rep_dir = processed_dir / rep_folder
-    rep_dir.mkdir(parents=True, exist_ok=True)
-    return rep_dir

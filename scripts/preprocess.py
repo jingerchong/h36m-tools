@@ -3,12 +3,12 @@ from pathlib import Path
 import logging
 
 from h36m_tools.rotations import to_quat, quat_to
-from h36m_tools.files import save_tensor, get_rep_dir
+from h36m_tools.files import save_tensor
 from h36m_tools.metadata import PROTOCOL, STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
 from h36m_tools.load import load_raw
 from h36m_tools.normalize import compute_stats
 from h36m_tools.dims import create_dim_mask, remove_dims
-from h36m_tools.utils import setup_logger
+from h36m_tools.utils import setup_logger, get_rep_dir
 
 
 def preprocess(raw_dir: Path, 
