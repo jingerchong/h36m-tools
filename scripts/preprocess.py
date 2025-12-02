@@ -16,7 +16,40 @@ def preprocess(raw_dir: Path,
                rep: str = "expmap",
                downsample: int = DOWNSAMPLE_FACTOR, 
                **rep_kwargs):
+    """
+    Preprocess H3.6M raw CDF data, converting raw joint rotations to the 
+    specified representation and computing normalization statistics.
 
+    This function performs the following steps:
+        1. Loads raw data from `raw_dir` (optionally downsampling).
+        2. Removes static joints from the data.
+        3. Converts joint rotations from Euler angles to the target representation (`rep`).
+        4. Saves each processed sequence as a `.pt` file in the proper `rep_dir` subfolder
+           (train/test split according to protocol).
+        5. Computes and saves mean and standard deviation tensors for training data.
+
+    Args:
+        raw_dir (Path): Directory containing raw H3.6M data.
+        rep_dir (Path): Directory where processed data will be saved. Subfolders for 
+            each representation and train/test split will be created automatically.
+        rep (str, optional): Target rotation representation. Supported values:
+            - "expmap" : rotation vectors / axis-angle
+            - "quat"   : quaternions
+            - "euler"  : Euler angles
+            - "rot6"   : 6D rotation representation
+            - "rot9"   : 9D rotation matrix flattened
+            Defaults to "expmap".
+        downsample (int, optional): Factor by which to downsample the temporal frames. 
+            Defaults to `DOWNSAMPLE_FACTOR`.
+        **rep_kwargs: Extra keyword arguments passed to `quat_to` for Euler angles:
+            - convention (str): Euler angle convention (e.g., "ZYX"). Default: "ZXY".
+            - degrees (bool): If True, return Euler angles in degrees. Default: False.
+
+    Returns:
+        None. Saves processed tensors to disk, including:
+            - Individual sequences in `.pt` files per subject/action/split.
+            - Normalization statistics (`mean.pt` and `std.pt`) for training data.
+    """
     logging.info(f"Loading raw data from {raw_dir}...")
     data = load_raw(raw_dir, downsample=downsample)  
     rep_dir.mkdir(parents=True, exist_ok=True)

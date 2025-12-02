@@ -8,7 +8,21 @@ from h36m_tools.files import read_files
 
 
 def inspect_files(paths: list[Path], n_frames: int = 1):
-    """Load and inspect one or multiple .cdf, .txt, or .pt files."""
+    """
+    Load and inspect one or multiple tensor files (.pt, .txt, or .cdf), logging 
+    basic information such as shape, dtype, device, min/max values, and the first few frames.
+
+    Args:
+        paths (list[Path]): List of file paths to load. Supported formats:
+            - .pt   : PyTorch tensor file
+            - .txt  : Text file with numeric pose/rotation data
+            - .cdf  : H3.6M raw CDF file
+        n_frames (int, optional): Number of initial frames to display for each tensor. 
+            Defaults to 1. If the tensor has fewer frames than `n_frames`, all frames are shown.
+
+    Returns:
+        None. Logs information about each tensor to the configured logger.
+    """
     tensors = read_files(paths)
 
     for path, tensor in zip(paths, tensors):
