@@ -4,7 +4,7 @@ import logging
 from tqdm import tqdm
 
 from h36m_tools.files import read_files
-from h36m_tools.dims import create_dim_mask, remove_dims
+from h36m_tools.dims import remove_dims
 from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
 from h36m_tools.utils import setup_logger, compare_tensors
 
@@ -41,9 +41,6 @@ def compare_expmap(ref_dir: Path,
 
     logger.info(f"Found {len(processed_files)} processed expmap files to compare")
 
-    site_mask  = create_dim_mask(SITE_JOINTS, NUM_JOINTS + len(SITE_JOINTS))
-    static_mask = create_dim_mask(STATIC_JOINTS, NUM_JOINTS)
-
     all_processed = read_files(processed_files)
     has_mismatch = False
 
@@ -66,8 +63,8 @@ def compare_expmap(ref_dir: Path,
             ref_tensor = ref_tensor.reshape(ref_tensor.shape[0], -1, 3)
             if downsample > 1:
                 ref_tensor = ref_tensor[::downsample]
-            ref_tensor = remove_dims(ref_tensor, site_mask, axis=-2)
-            ref_tensor = remove_dims(ref_tensor, static_mask, axis=-2)
+            ref_tensor = remove_dims(ref_tensor, SITE_JOINTS, NUM_JOINTS + len(SITE_JOINTS), -2)
+            ref_tensor = remove_dims(ref_tensor, STATIC_JOINTS, NUM_JOINTS, -2)
 
             if compare_tensors(processed_tensor, -ref_tensor, name=f"{file} vs {ref_file}"):
                 match_found = True

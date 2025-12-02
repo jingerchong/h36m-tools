@@ -6,55 +6,57 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_dim_mask(selected_dims: Iterable[int], total_dims: int) -> torch.BoolTensor:
-    """
-    Create a boolean mask of length total_dims where selected dims = True.
-    """
+def _create_mask(selected_dims: Iterable[int], total_dims: int) -> torch.BoolTensor:
+    """Create a boolean mask of length total_dims where selected_dims are True."""
     mask = torch.zeros(total_dims, dtype=torch.bool)
     mask[list(selected_dims)] = True
-    logger.debug(f"create_dim_mask: selected_dims={list(selected_dims)}, total_dims={total_dims}")
     return mask
 
 
 def remove_dims(tensor: torch.Tensor,
-                mask: torch.BoolTensor,
+                selected_dims: Iterable[int],
+                total_dims: int,
                 axis: int = -1) -> torch.Tensor:
     """
-    Remove dimensions from a tensor at positions specified by a boolean mask along a given axis.
+    Remove dimensions from a tensor at positions specified by selected_dims along a given axis.
 
     Args:
         tensor: Input tensor.
-        mask: Boolean mask of length equal to tensor.shape[axis]. True dims are removed.
+        selected_dims: Indices of dimensions to remove.
+        total_dims: Total number of dimensions along the axis.
         axis: Axis along which to remove dimensions. Default: -1.
 
     Returns:
         Tensor with specified dims removed.
     """
-    assert tensor.shape[axis] == mask.numel(), "Mask length must match tensor size along specified dim"
+    mask = _create_mask(selected_dims, total_dims)
     idx = (~mask).nonzero(as_tuple=True)[0]
     out = torch.index_select(tensor, axis, idx)
     
-    logger.debug(f"remove_dims: axis={axis}, tensor_shape={tensor.shape}, output_shape={out.shape}")
+    logger.debug(f"remove_dims: selected_dims={list(selected_dims)}, axis={axis}, "
+                 f"tensor_shape={tensor.shape}, output_shape={out.shape}")
     return out
 
 
 def add_dims(tensor: torch.Tensor,
-             mask: torch.BoolTensor,
+             selected_dims: Iterable[int],
+             total_dims: int,
              fill_values: Union[float, torch.Tensor] = 0.0,
              axis: int = -1) -> torch.Tensor:
     """
-    Add dimensions into a tensor at positions specified by a boolean mask along a given axis.
+    Add dimensions into a tensor at positions specified by selected_dims along a given axis.
 
     Args:
         tensor: Tensor with shape [..., D_kept, ...].
-        mask: Boolean mask of length total_dims. True dims are added, False dims come from tensor.
+        selected_dims: Indices of dimensions to add.
+        total_dims: Total number of dimensions along the axis after addition.
         fill_values: Scalar or tensor to fill added dimensions.
         axis: Axis along which to add dimensions. Default: -1.
 
     Returns:
         Tensor with added dimensions.
     """
-    total_dims = mask.numel()
+    mask = _create_mask(selected_dims, total_dims)
     kept_count = (~mask).sum().item()
     
     if axis < 0:
@@ -80,5 +82,6 @@ def add_dims(tensor: torch.Tensor,
     else:
         out.index_fill_(axis, add_idx, fill_values)
 
-    logger.debug(f"add_dims: axis={axis}, tensor_shape={tensor.shape}, output_shape={out.shape}")
+    logger.debug(f"add_dims: selected_dims={list(selected_dims)}, axis={axis}, "
+                 f"tensor_shape={tensor.shape}, output_shape={out.shape}")
     return out
