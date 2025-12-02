@@ -34,7 +34,7 @@ def quat_to(quat: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
     elif rep == "euler":
         convention = kwargs.get("convention", "ZXY")
         degrees = kwargs.get("degrees", False)
-        out = roma.unitquat_to_euler(quat_norm, convention=convention, degrees=degrees)  # [..., 3]
+        out = roma.unitquat_to_euler(convention, quat_norm, degrees=degrees)  # [..., 3]
     elif rep == "rot9":
         rotm = roma.unitquat_to_rotmat(quat_norm)  # [..., 3, 3]
         out = rotm.reshape(*rotm.shape[:-2], 9)  # [..., 9]
