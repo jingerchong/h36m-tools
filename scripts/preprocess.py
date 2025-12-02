@@ -11,6 +11,9 @@ from h36m_tools.dims import create_dim_mask, remove_dims
 from h36m_tools.utils import setup_logger, get_rep_dir
 
 
+logger = logging.getLogger(__name__)
+
+
 def preprocess(raw_dir: Path, 
                rep_dir: Path, 
                rep: str = "expmap",

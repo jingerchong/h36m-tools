@@ -1,6 +1,10 @@
 import sys
 import logging
 from pathlib import Path
+import torch
+
+
+logger = logging.getLogger(__name__)
 
 
 def setup_logger(output_dir: Path | None = None, debug: bool = False) -> logging.Logger:
@@ -73,3 +77,38 @@ def get_rep_dir(processed_dir: Path, rep: str, convention: str | None = None, de
     rep_dir = processed_dir / rep_folder
     rep_dir.mkdir(parents=True, exist_ok=True)
     return rep_dir
+
+
+def compare_tensors(processed: torch.Tensor, reference: torch.Tensor, name: str = "", atol: float = 1e-4) -> bool:
+    """
+    Compare two tensors and log detailed statistics if they differ.
+
+    Args:
+        processed: The processed tensor.
+        reference: The reference tensor.
+        name: Optional identifier to include in log messages.
+        atol: Absolute tolerance for comparison (default 1e-4).
+
+    Returns:
+        True if tensors are equal within tolerance, False if they differ.
+    """
+    reference = reference.to(processed.device)
+
+    if processed.shape != reference.shape:
+        logger.error(f"Shape mismatch: {name}")
+        logger.info(f"Shape processed: {processed.shape}, reference: {reference.shape}")
+        return False
+
+    if torch.allclose(processed, reference, atol=atol):
+        return True
+
+    logger.error(f"Tensors do not match: {name}")
+    diff = processed - reference
+    n_diff = torch.sum(diff != 0).item()
+    max_diff = torch.max(diff.abs()).item()
+    mean_diff = torch.mean(diff.abs()).item()
+    logger.info(f"Number of differing elements: {n_diff}")
+    logger.info(f"Max absolute difference: {max_diff:.4f}")
+    logger.info(f"Mean absolute difference: {mean_diff:.4f}")
+
+    return False

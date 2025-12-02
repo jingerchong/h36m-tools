@@ -29,7 +29,7 @@ def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
     outputs = []
     
 
-    for file in tqdm(inputs, desc="Reading files"):
+    for file in tqdm(inputs, desc="Reading files", disable=len(outputs) < 20):
         suffix = Path(file).suffix.lower()
 
         try:

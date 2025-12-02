@@ -40,10 +40,7 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
         subject = file.parts[-4].upper()
         action = "".join(c for c in file.stem if c.isalpha()).lower()
 
-        T, total_dims = angles.shape
-        J = total_dims // 3
-        angles = angles.reshape(T, J, 3)[:, 1:]
-
+        angles = angles.reshape(angles.shape[0], -1, 3)[:, 1:]
         if downsample and downsample > 1:
             angles = angles[::downsample]
 
