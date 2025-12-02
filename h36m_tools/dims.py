@@ -6,9 +6,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _create_mask(selected_dims: Iterable[int], total_dims: int) -> torch.BoolTensor:
+def _create_mask(selected_dims: Iterable[int], total_dims: int, device: torch.device) -> torch.BoolTensor:
     """Create a boolean mask of length total_dims where selected_dims are True."""
-    mask = torch.zeros(total_dims, dtype=torch.bool)
+    mask = torch.zeros(total_dims, dtype=torch.bool, device=device)
     mask[list(selected_dims)] = True
     return mask
 
@@ -29,7 +29,7 @@ def remove_dims(tensor: torch.Tensor,
     Returns:
         Tensor with specified dims removed.
     """
-    mask = _create_mask(selected_dims, total_dims)
+    mask = _create_mask(selected_dims, total_dims, tensor.device)
     idx = (~mask).nonzero(as_tuple=True)[0]
     out = torch.index_select(tensor, axis, idx)
     
@@ -56,7 +56,7 @@ def add_dims(tensor: torch.Tensor,
     Returns:
         Tensor with added dimensions.
     """
-    mask = _create_mask(selected_dims, total_dims)
+    mask = _create_mask(selected_dims, total_dims, tensor.device)
     kept_count = (~mask).sum().item()
     
     if axis < 0:

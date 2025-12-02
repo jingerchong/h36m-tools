@@ -93,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=Path, default=Path("data/processed"), help="Processed data directory")
     parser.add_argument("-r", "--rep", type=str, default="expmap", help="Target rotation representation")
     parser.add_argument("-d", "--downsample", type=int, default=DOWNSAMPLE_FACTOR, help="Downsample factor")
-    parser.add_argument("--convention", type=str, default="ZYX", help="Target Euler angle convention")
+    parser.add_argument("--convention", type=str, default="ZXY", help="Target Euler angle convention")
     parser.add_argument("--degrees", action="store_true", help="If set, target Euler angles returned as degrees")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
