@@ -83,3 +83,5 @@ def mpjpe(y_pred: torch.Tensor,
     logger.debug(f"MPJPE result shape: {error.shape}, reduce_all={reduce_all}")
     return error
 
+
+# TODO: add NLL
