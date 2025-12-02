@@ -7,6 +7,9 @@ from h36m_tools.utils import setup_logger
 from h36m_tools.files import read_files
 
 
+logger = logging.getLogger(__name__)
+
+
 def inspect_files(paths: list[Path], n_frames: int = 1):
     """
     Load and inspect one or multiple tensor files (.pt, .txt, or .cdf), logging 

@@ -6,12 +6,12 @@ from tqdm import tqdm
 from h36m_tools.files import read_files
 from h36m_tools.dims import create_dim_mask, remove_dims
 from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
-from h36m_tools.utils import setup_logger, compare_tensors, standardize_action
+from h36m_tools.utils import setup_logger, compare_tensors
 
 
 logger = logging.getLogger(__name__)
 
-EXPMAP_SITE_JOINTS = (0, 6, 11, 16, 22, 24, 30, 32)
+SITE_JOINTS = (0, 6, 11, 16, 22, 24, 30, 32)
 
 
 def compare_expmap(ref_dir: Path, 
@@ -41,7 +41,7 @@ def compare_expmap(ref_dir: Path,
 
     logger.info(f"Found {len(processed_files)} processed expmap files to compare")
 
-    site_mask  = create_dim_mask(EXPMAP_SITE_JOINTS, NUM_JOINTS + len(EXPMAP_SITE_JOINTS))
+    site_mask  = create_dim_mask(SITE_JOINTS, NUM_JOINTS + len(SITE_JOINTS))
     static_mask = create_dim_mask(STATIC_JOINTS, NUM_JOINTS)
 
     all_processed = read_files(processed_files)
