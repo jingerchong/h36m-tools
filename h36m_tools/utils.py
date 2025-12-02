@@ -32,8 +32,8 @@ def setup_logger(output_dir: Path | None = None, debug: bool = False) -> logging
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)  
 
-    if logger.handlers:
-        return logger
+    for h in logger.handlers[:]:
+        logger.removeHandler(h)
 
     console_level = logging.DEBUG if debug else logging.INFO
     ch = logging.StreamHandler(sys.stdout)
@@ -47,7 +47,7 @@ def setup_logger(output_dir: Path | None = None, debug: bool = False) -> logging
         log_file = output_dir / f"{script_name}.log"
 
         fh = logging.FileHandler(log_file, mode="w")
-        fh.setLevel(logging.DEBUG)  # File always gets DEBUG
+        fh.setLevel(logging.DEBUG) 
         fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s"))
         logger.addHandler(fh)
 
@@ -112,3 +112,30 @@ def compare_tensors(processed: torch.Tensor, reference: torch.Tensor, name: str 
     logger.info(f"Mean absolute difference: {mean_diff:.4f}")
 
     return False
+
+
+def standardize_action(raw_action: str) -> str:
+    """
+    Normalize / standardize Human3.6M action names to consistent canonical forms.
+
+    This function:
+      - Strips non-alphabetic characters.
+      - Converts to lowercase.
+      - Normalizes known variants (e.g., 'walk' → 'walking').
+      - Applies rule-based replacements.
+
+    Args:
+        raw_action (str): The raw action name extracted from a filename.
+
+    Returns:
+        str: A cleaned, standardized action string.
+    """
+    action = "".join(c for c in raw_action.lower() if c.isalpha())
+
+    if "walk" in action and "walking" not in action:
+        action = action.replace("walk", "walking")
+
+    elif "photo" in action and "takingphoto" not in action:
+        action = "takingphoto"
+
+    return action

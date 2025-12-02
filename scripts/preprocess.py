@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import logging
+import shutil
 
 from h36m_tools.rotations import to_quat, quat_to
 from h36m_tools.files import save_tensor
@@ -54,7 +55,7 @@ def preprocess(raw_dir: Path,
             - Normalization statistics (`mean.pt` and `std.pt`) for training data.
     """
     logging.info(f"Loading raw data from {raw_dir}...")
-    data = load_raw(raw_dir, downsample=downsample)  
+    data = load_raw(raw_dir, downsample=downsample) 
     rep_dir.mkdir(parents=True, exist_ok=True)
 
     static_mask = create_dim_mask(STATIC_JOINTS, NUM_JOINTS)
@@ -99,6 +100,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     rep_dir = get_rep_dir(args.output, rep=args.rep, convention=args.convention, degrees=args.degrees)
+    if rep_dir.exists():
+        logging.info(f"Removing existing directory: {rep_dir}")
+        shutil.rmtree(rep_dir) 
+    
     setup_logger(rep_dir, debug=args.debug)
 
     preprocess(args.input, rep_dir, rep=args.rep, downsample=args.downsample,

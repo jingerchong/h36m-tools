@@ -6,6 +6,7 @@ import torch
 
 from h36m_tools.files import read_files  
 from h36m_tools.metadata import DOWNSAMPLE_FACTOR
+from h36m_tools.utils import standardize_action
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
 
     for file, angles in tqdm(zip(input_files, all_angles), desc="Processing angles", total=len(input_files)):
         subject = file.parts[-4].upper()
-        action = "".join(c for c in file.stem if c.isalpha()).lower()
+        action = standardize_action(file.stem)
 
         angles = angles.reshape(angles.shape[0], -1, 3)[:, 1:]
         if downsample and downsample > 1:
