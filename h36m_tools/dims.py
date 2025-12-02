@@ -12,7 +12,7 @@ def create_dim_mask(selected_dims: Iterable[int], total_dims: int) -> torch.Bool
     """
     mask = torch.zeros(total_dims, dtype=torch.bool)
     mask[list(selected_dims)] = True
-    logger.debug(f"create_dim_mask: selected_dims={list(selected_dims)}, total_dims={total_dims}, mask={mask}")
+    logger.debug(f"create_dim_mask: selected_dims={list(selected_dims)}, total_dims={total_dims}")
     return mask
 
 
@@ -34,8 +34,7 @@ def remove_dims(tensor: torch.Tensor,
     idx = (~mask).nonzero(as_tuple=True)[0]
     out = torch.index_select(tensor, axis, idx)
     
-    logger.debug(f"remove_dims: axis={axis}, tensor_shape={tensor.shape}, mask={mask}, "
-                 f"kept_indices={idx.tolist()}, output_shape={out.shape}")
+    logger.debug(f"remove_dims: axis={axis}, tensor_shape={tensor.shape}, output_shape={out.shape}")
     return out
 
 
@@ -81,6 +80,5 @@ def add_dims(tensor: torch.Tensor,
     else:
         out.index_fill_(axis, add_idx, fill_values)
 
-    logger.debug(f"add_dims: axis={axis}, tensor_shape={tensor.shape}, mask={mask}, "
-                 f"added_indices={add_idx.tolist()}, fill_values={fill_values}, output_shape={out.shape}")
+    logger.debug(f"add_dims: axis={axis}, tensor_shape={tensor.shape}, output_shape={out.shape}")
     return out

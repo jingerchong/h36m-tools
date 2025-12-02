@@ -95,21 +95,21 @@ def compare_tensors(processed: torch.Tensor, reference: torch.Tensor, name: str 
     reference = reference.to(processed.device)
 
     if processed.shape != reference.shape:
-        logger.error(f"Shape mismatch: {name}")
-        logger.info(f"Shape processed: {processed.shape}, reference: {reference.shape}")
+        logger.debug(f"Shape mismatch: {name}")
+        logger.debug(f"Shape processed: {processed.shape}, reference: {reference.shape}")
         return False
 
     if torch.allclose(processed, reference, atol=atol):
         return True
 
-    logger.error(f"Tensors do not match: {name}")
+    logger.debug(f"Tensors do not match: {name}")
     diff = processed - reference
     n_diff = torch.sum(diff != 0).item()
     max_diff = torch.max(diff.abs()).item()
     mean_diff = torch.mean(diff.abs()).item()
-    logger.info(f"Number of differing elements: {n_diff}")
-    logger.info(f"Max absolute difference: {max_diff:.4f}")
-    logger.info(f"Mean absolute difference: {mean_diff:.4f}")
+    logger.debug(f"Number of differing elements: {n_diff}")
+    logger.debug(f"Max absolute difference: {max_diff:.4f}")
+    logger.debug(f"Mean absolute difference: {mean_diff:.4f}")
 
     return False
 
