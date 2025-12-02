@@ -2,6 +2,7 @@ import sys
 import logging
 from pathlib import Path
 import torch
+from typing import Tuple, Optional, Union
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,8 @@ def setup_logger(output_dir: Path | None = None, debug: bool = False) -> logging
         logger.removeHandler(h)
 
     console_level = logging.DEBUG if debug else logging.INFO
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+    
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(console_level)
     ch.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
@@ -77,6 +80,31 @@ def get_rep_dir(processed_dir: Path, rep: str, convention: str | None = None, de
     rep_dir = processed_dir / rep_folder
     rep_dir.mkdir(parents=True, exist_ok=True)
     return rep_dir
+
+
+def parse_rep_dir(dir_path: Union[str, Path]) -> Tuple[str, Optional[str], Optional[bool]]:
+    """
+    Parse representation (rep), convention, and degrees flag
+    from a directory name produced by get_rep_dir().
+    Works if a full path is provided.
+
+    Args:
+        dir_path: str or Path pointing to a rep folder or full path.
+        
+    Returns:
+        (rep, convention, degrees)
+    """
+    dir_name = Path(dir_path).name
+    parts = dir_name.split("_")
+
+    if parts[0] != "euler":
+        return parts[0], None, None
+    if len(parts) == 3:
+        _, conv, unit = parts
+        degrees = unit.lower() == "deg"
+        return "euler", conv, degrees
+    return "euler", "ZXY", False
+
 
 
 def compare_tensors(processed: torch.Tensor, reference: torch.Tensor, name: str = "", atol: float = 1e-4) -> bool:

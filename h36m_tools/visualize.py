@@ -8,7 +8,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
 
-from h36m_tools.metadata import JOINT_NAMES, RIGHT_LEFT_JOINTS_IDX, PARENTS, DOWNSAMPLED_FPS
+from h36m_tools.metadata import JOINT_NAMES, RIGHT_LEFT_JOINTS_IDX, PARENTS, DOWNSAMPLE_FACTOR, RAW_FPS
 from h36m_tools.kinematics import fk
 
 
@@ -26,7 +26,6 @@ def _to_numpy_pos(data: RotData, rep: str, **kwargs: Any) -> np.ndarray:
     data_t = torch.as_tensor(data, dtype=torch.float32)
     pos = fk(data_t, rep=rep, **kwargs)
     arr = pos.detach().cpu().numpy()
-    arr = arr.copy()
     arr[..., [1, 2]] = arr[..., [2, 1]]
     return arr
 
@@ -51,23 +50,28 @@ def _setup_axes(fig: Optional[plt.Figure] = None,
         fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection="3d")
     ax.view_init(elev=elev, azim=azim)
+
     if center is not None and radius is not None:
         ax.set_xlim(center[0] - radius, center[0] + radius)
         ax.set_ylim(center[1] - radius, center[1] + radius)
         ax.set_zlim(center[2] - radius, center[2] + radius)
+        ax.set_autoscale_on(False)
+
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
     ax.set_title(title, fontsize=18)
+    ax.set_box_aspect([1,1,1])  
+    
     return fig, ax
 
 
 def _draw_skeleton_lines(ax: plt.Axes, 
-                        frame: np.ndarray, 
-                        parents: List[int], 
-                        right_joints: List[int], 
-                        alpha: float = 1.0, 
-                        line_objs: Optional[List[Optional[Line2D]]] = None) -> List[Optional[plt.Line2D]]:
+                         frame: np.ndarray, 
+                         parents: List[int], 
+                         right_joints: List[int], 
+                         alpha: float = 1.0, 
+                         line_objs: Optional[List[Optional[Line2D]]] = None) -> List[Optional[plt.Line2D]]:
     """Draw or update skeleton lines connecting joints."""
     J = frame.shape[0]
     if line_objs is None:
@@ -116,9 +120,7 @@ def plot_frames(sequences: Union[RotData, List[RotData]],
                 title: str = "",
                 parents: List[int] = PARENTS,
                 right_left_joints_idx=RIGHT_LEFT_JOINTS_IDX,
-                plot_joint_names: bool = False,
-                show: bool = True,
-                save_path: Optional[Path] = None,
+                show_joint_names: bool = False,
                 **rep_kwargs
                 ) -> Tuple[plt.Figure, plt.Axes]:
     """
@@ -130,15 +132,15 @@ def plot_frames(sequences: Union[RotData, List[RotData]],
 
     Args:
         sequences: Single array [T, J, 3] or list of arrays, each [T, J, 3]
+        rep: Representation type (e.g., "quat", "rot6d")
         title: Figure title
         parents: Skeleton parent indices (default from metadata)
         right_left_joints_idx: List of (right, left) joint tuples for coloring
-        plot_joint_names: Whether to render joint name labels
-        show: Whether to display the figure (set False if only saving)
-        save_path: Optional path to save figure as image file
+        show_joint_names: Whether to render joint name labels
+        **rep_kwargs: Additional arguments for representation conversion
 
     Returns:
-        Tuple of (figure, axes) objects
+        matplotlib Figure object (use fig.savefig() or plt.show() externally)
     """
     if isinstance(sequences, (np.ndarray, torch.Tensor)):
         sequences = [sequences]
@@ -150,22 +152,14 @@ def plot_frames(sequences: Union[RotData, List[RotData]],
 
     for i, seq in enumerate(seq_pos):
         alpha = 1.0 if len(seq_pos) == 1 else (0.3 + 0.7 * (i / (len(seq_pos) - 1)))
+        line_objs = None  
         for frame in seq:
-            _draw_skeleton_lines(ax, frame, parents, right_joints, alpha)
-        if plot_joint_names:
+            line_objs = _draw_skeleton_lines(ax, frame, parents, right_joints, alpha, line_objs)
+        if show_joint_names and i == len(seq_pos) - 1:
             _update_joint_labels(ax, seq[-1], JOINT_NAMES, radius=radius)
 
-    if save_path:
-        plt.savefig(save_path, dpi=150)
-        plt.close(fig)
-        logger.debug(f"plot_frames: saved figure to {save_path}")
-    elif show:
-        plt.show()
-        logger.debug(f"plot_frames: displayed figure for {len(sequences)} sequence(s)")
-    else:
-        plt.close(fig)
-
-    return fig, ax
+    logger.debug(f"plot_frames: created figure for {len(sequences)} sequence(s)")
+    return fig
 
 
 def animate_frames(pred: RotData,
@@ -173,9 +167,9 @@ def animate_frames(pred: RotData,
                    gt: Optional[RotData] = None,
                    parents: List[int] = PARENTS,
                    right_left_joints_idx=RIGHT_LEFT_JOINTS_IDX,
-                   fps: int = DOWNSAMPLED_FPS,
+                   fps: int = RAW_FPS // DOWNSAMPLE_FACTOR,
                    title: str = "",
-                   plot_joint_names: bool = False,
+                   show_joint_names: bool = False,
                    **rep_kwargs
                    ) -> FuncAnimation:
     """
@@ -194,7 +188,7 @@ def animate_frames(pred: RotData,
         right_left_joints_idx: (right, left) joint index pairs for coloring
         fps: Animation frames per second
         title: Figure title
-        plot_joint_names: Whether to render joint name labels
+        show_joint_names: Whether to render joint name labels
 
     Returns:
         FuncAnimation object (must keep reference to prevent garbage collection)
@@ -216,25 +210,28 @@ def animate_frames(pred: RotData,
     text_gt = None
 
     def update(t: int):
-        nonlocal text_pred, text_gt
-        
-        _draw_skeleton_lines(ax, pred_pos[t], parents, right_joints, line_objs=pred_lines)  
-        if plot_joint_names:
+        nonlocal pred_lines, gt_lines, text_pred, text_gt
+
+        pred_lines = _draw_skeleton_lines(ax, pred_pos[t], parents, right_joints, alpha=1.0, line_objs=pred_lines)
+        if show_joint_names:
             text_pred = _update_joint_labels(ax, pred_pos[t], JOINT_NAMES, text_pred, radius=radius)
-        
-        if gt_pos is not None:  # BUG FIX: Check gt_pos instead of gt
-            _draw_skeleton_lines(ax, gt_pos[t], parents, right_joints, alpha=0.5, line_objs=gt_lines)  
-            if plot_joint_names:
+
+        if gt_pos is not None:
+            gt_lines = _draw_skeleton_lines(ax, gt_pos[t], parents, right_joints, alpha=0.5, line_objs=gt_lines)
+            if show_joint_names:
                 text_gt = _update_joint_labels(ax, gt_pos[t], JOINT_NAMES, text_gt, radius=radius)
 
-        objs = pred_lines + (gt_lines if gt_lines else [])
-        if plot_joint_names:
-            objs += text_pred or []
+        objs = [line for line in pred_lines if line is not None]
+        if gt_lines:
+            objs.extend([line for line in gt_lines if line is not None])
+        if show_joint_names and text_pred:
+            objs.extend(text_pred)
             if text_gt:
-                objs += text_gt
+                objs.extend(text_gt)
+        
         return objs
 
-    anim = FuncAnimation(fig, update, frames=pred_pos.shape[0], interval=1000 / fps, blit=False) 
+    anim = FuncAnimation(fig, update, frames=pred_pos.shape[0], interval=1000 / fps, blit=True, repeat=True) 
     plt.close(fig)  
     logger.debug(f"animate_frames: created animation for {pred_pos.shape[0]} frames at {fps} fps")  
     return anim

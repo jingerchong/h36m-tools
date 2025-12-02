@@ -30,7 +30,7 @@ def _fk_quat(quat: torch.Tensor,
     pos = torch.zeros_like(quat[..., :3])  # [..., J, 3]
  
     if ignore_root: 
-        quat[..., 0, :] = roma.quat_identity(size=quat.shape[:-2], dtype=quat.dtype, device=quat.device)  # [..., 4]
+        quat[..., 0, :] = roma.identity_quat(size=quat.shape[:-2], dtype=quat.dtype, device=quat.device)  # [..., 4]
  
     for i in range(1, quat.shape[-2]): 
         parent = parents[i] 
@@ -39,7 +39,8 @@ def _fk_quat(quat: torch.Tensor,
         # Accumulate global rotation from parent
         quat[..., i, :] = roma.quat_product(quat[..., parent, :], quat[..., i, :])  # [..., 4]
         # Rotate bone offset by parent rotation and add to parent position
-        pos[..., i, :] = pos[..., parent, :] + roma.quat_action(quat[..., parent, :], offsets[i])  # [..., 3]
+        offset = offsets[i].expand(*quat[..., parent, :].shape[:-1], 3)
+        pos[..., i, :] = pos[..., parent, :] + roma.quat_action(quat[..., parent, :], offset)  # [..., 3]
  
     return pos
 
