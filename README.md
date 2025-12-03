@@ -12,7 +12,7 @@ These tools originally aimed to reproduce the preprocessed expmap dataset common
 
 ## Features
 
-* **SO(3) representation conversion** from D3_Angles to multiple rotation formats
+* **SO(3) representation conversion** from raw D3_Angles to multiple rotation formats
 * **Forward Kinematics (FK)** to convert rotation-based representations to 3D joint positions
 * **3D visualization and animation** of skeleton sequences for validation
 * **Static dimension filtering** and normalization statistics computation
@@ -59,67 +59,52 @@ data/raw/
 └── ...
 ```
 
-**Note:** The D3_Angles files contain **Euler angles** in the ZXY order, defined relative to each joint's parent. The root position (first 3 values) and root rotation (next 3 values) are often discarded for human motion prediction tasks.
+**Note:** The D3_Angles files contain **Tait-Bryan angles** in the ZXY order, defined relative to each joint's parent. The root position (first 3 values) and root rotation (next 3 values) are often discarded for human motion prediction tasks.
 
-## Scripts
-
-### Preprocessing
+## Preprocessing
 
 Generate a preprocessed dataset for a specific SO(3) representation:
 
 ```bash
-python -m scripts.preprocess \
-    -rep "expmap" \
-    -i "data/raw" \
-    -o "data/processed"
+python -m scripts.preprocess -rep "expmap" -i "data/raw" -o "data/processed"
 ```
 
 This will:
-* Apply a default downsampling from the original 50fps to 25fps
+* Apply a default downsampling from the original 50 fps to 25 fps
 * Remove static dimensions
 * Convert to the desired SO(3) representation
 * Save processed `.pt` tensors
 * Compute global mean and standard deviation for normalization
 
-### Comparison with Expmap Zip Dataset
+## Comparison with Expmap Zip Dataset
 
-If you have access to the original expmap zip file, you can verify that our preprocessing generates equivalent outputs:
+If you have access to the original expmap zip file, you can verify that our preprocessing script generates equivalent outputs:
 
 ```bash
-python -m scripts.compare_expmap \
-    -r "data/raw" \
-    -p "data/expmap_zip"
+python -m scripts.compare_expmap -r "data/raw" -p "data/expmap_zip"
 ```
 This compares all non-static dimensions for equivalent sequences (same action and subject). Note that in some cases, the sequence order may differ (e.g., "S1 Eating 1" in our processed dataset might correspond to "S1 Eating 2" in the original zip).
 
-### Visualization
+## Visualization
 
 The repository provides tools to visualize skeleton sequences in multiple formats. Example outputs can be found in the `outputs/` folder.
 
 Plot a series of frames:
 ```bash
-python -m scripts.plot_sequence \
-    -i "data/processed/expmap/train/S1_walking_1.pt" \
-    -s 0 \
-    -n 10 \
+python -m scripts.plot_sequence -i "data/processed/expmap/train/S1_walking_1.pt -s 100" 
 ```
 
 Create MP4 animations of entire sequences:
 ```bash
-python -m scripts.animate_sequence \
-    -i "data/processed/quat/train/S1_walking_1.pt" \
-    -n 100 \
-    --label
+python -m scripts.animate_sequence -i "data/processed/quat/train/S1_walking_1.pt" 
 ```
-This script infers the representation from the parent directory of the data.
+**Note:** This script infers the representation from the parent directory of the data.
 
-### Data Inspection
+## Data Inspection
 
 Quickly inspect raw or processed files to view tensor properties and sample frames:
 ```bash
-python -m scripts.inspect_files \
-    -i "data/expmap_zip/S1/directions_1.txt" \
-       "data/processed/expmap/train/S1_directions_1.pt"
+python -m scripts.inspect_files -i "data/expmap_zip/S1/directions_1.txt" "data/processed/expmap/train/S1_directions_1.pt"
 ```
 
 **Supported formats:** `.cdf` (raw H3.6M), `.pt` (processed tensors), `.txt` (expmap zip format)
@@ -127,7 +112,7 @@ python -m scripts.inspect_files \
 This displays tensor shape, dtype, min/max values, and the first `n` frames for each file.
 
 
-### Integration with Your Models
+## Integration with Models
 
 Load processed H3.6M data for training or evaluation:
 
@@ -137,7 +122,7 @@ from h36m_tools.load import load_processed
 train, test, mean, std = load_processed("data/processed", rep="quat")
 ```
 
-Compute standard motion prediction metrics:
+Compute standard human motion prediction metrics:
 
 ```python
 from h36m_tools.metrics import mae_l2, mpjpe
@@ -162,11 +147,4 @@ If you use this repository in your research or projects, please cite it as follo
 
 ## Development Status
 
-This repository is **under active development** and shared in the spirit of open research.
-
-**Please note:**
-- New features and improvements are added regularly
-- Some functionality may contain bugs or change in future releases
-- Contributions, bug reports, and questions are welcome via GitHub Issues
-
-If you encounter any issues or have questions, please open an issue or reach out directly.
+This repository is **under active development** and shared in the spirit of open research. New features and improvements are being added and some functionality may contain bugs or change in future releases. Contributions, bug reports, and questions are welcome via GitHub.
