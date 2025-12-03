@@ -27,7 +27,6 @@ def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
         list[torch.Tensor]: List of tensors loaded from each input file, in original order.
     """
     outputs = []
-    
 
     for file in tqdm(inputs, desc="Reading files", disable=len(outputs) < 20):
         suffix = Path(file).suffix.lower()

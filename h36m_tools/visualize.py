@@ -115,7 +115,7 @@ def _update_joint_labels(ax: plt.Axes,
     return text_objs
 
 
-def plot_frames(sequences: Union[RotData, List[RotData]],
+def plot_frames(sequence: RotData,
                 rep: str = "quat",
                 title: str = "",
                 parents: List[int] = PARENTS,
@@ -124,14 +124,13 @@ def plot_frames(sequences: Union[RotData, List[RotData]],
                 **rep_kwargs
                 ) -> Tuple[plt.Figure, plt.Axes]:
     """
-    Plot one or more skeleton sequences with fixed global scaling.
+    Plot one skeleton sequence with fixed global scaling.
     
-    Multiple sequences are overlaid with varying transparency to show progression
-    or comparison. The plot bounds are computed globally to ensure all sequences
-    are visible and comparable.
+    Multiple frames are overlaid with varying transparency to show progression
+    The plot bounds are computed globally to ensure all sequences are visible and comparable.
 
     Args:
-        sequences: Single array [T, J, 3] or list of arrays, each [T, J, 3]
+        sequence: Rotation tensor [T, J, D] 
         rep: Representation type (e.g., "quat", "rot6d")
         title: Figure title
         parents: Skeleton parent indices (default from metadata)
@@ -141,24 +140,21 @@ def plot_frames(sequences: Union[RotData, List[RotData]],
 
     Returns:
         matplotlib Figure object (use fig.savefig() or plt.show() externally)
-    """
-    if isinstance(sequences, (np.ndarray, torch.Tensor)):
-        sequences = [sequences]
-    
-    seq_pos = [_to_numpy_pos(s, rep=rep, **rep_kwargs) for s in sequences]
+    """ 
+    seq_pos = _to_numpy_pos(sequence, rep=rep, **rep_kwargs)  # [T, J, 3]
     right_joints = _get_right_joints(right_left_joints_idx)
     center, radius = _compute_bounds(seq_pos)
     fig, ax = _setup_axes(center=center, radius=radius, title=title)
 
-    for i, seq in enumerate(seq_pos):
-        alpha = 1.0 if len(seq_pos) == 1 else (0.3 + 0.7 * (i / (len(seq_pos) - 1)))
-        line_objs = None  
-        for frame in seq:
-            line_objs = _draw_skeleton_lines(ax, frame, parents, right_joints, alpha, line_objs)
-        if show_joint_names and i == len(seq_pos) - 1:
-            _update_joint_labels(ax, seq[-1], JOINT_NAMES, radius=radius)
+    T = seq_pos.shape[0]
+    for t, frame in enumerate(seq_pos):
+        alpha = 0.3 + 0.7 * (t / max(1, T - 1))  
+        _draw_skeleton_lines(ax, frame, parents, right_joints, alpha=alpha, line_objs=None)
 
-    logger.debug(f"plot_frames: created figure for {len(sequences)} sequence(s)")
+    if show_joint_names:
+        _update_joint_labels(ax, seq_pos[-1], JOINT_NAMES, radius=radius)
+
+    logger.debug(f"plot_frames: plotted {T} superimposed fading frames")
     return fig
 
 
@@ -182,8 +178,8 @@ def animate_frames(pred: RotData,
     collection, which would stop the animation.
 
     Args:
-        pred: Predicted poses [T, J, 3]
-        gt: Ground truth poses [T, J, 3], optional for comparison
+        pred: Predicted rotation tensor [T, J, D]
+        gt: Ground truth rotation tensor [T, J, D], optional for comparison
         parents: Skeleton parent indices (default from metadata)
         right_left_joints_idx: (right, left) joint index pairs for coloring
         fps: Animation frames per second
