@@ -4,22 +4,20 @@ This repository provides tools to **preprocess and visualize the Human3.6M (H3.6
 
 * **Quaternions**
 * **Expmap / axis-angle**
-* **Euler angles**
+* **Euler / Tait-Bryan angles**
 * **Rotation matrices**
-* [**6D rotation matrix**](https://arxiv.org/abs/1812.07035)
+* [**6D rotation matrices**](https://arxiv.org/abs/1812.07035)
 
-These scripts aim to reproduce the preprocessed expmap dataset which is commonly referenced in motion prediction research but whose [original download link](http://www.cs.stanford.edu/people/ashesh/h3.6m.zip) is no longer available.
+These tools originally aimed to reproduce the preprocessed expmap dataset commonly referenced in motion prediction research, whose [original download link](http://www.cs.stanford.edu/people/ashesh/h3.6m.zip) is no longer available.
 
-Additionally, this repository includes:
-* Conversion from rotation-based representations (e.g., quaternions) to **3D joint positions via Forward Kinematics (FK)**
-* 3D visualization and animation of skeleton sequences to validate preprocessing and predictions
-* Filtering and adding of **static dimensions**
-* Computation of **global normalization statistics** (mean and standard deviation)
-* Configuration files describing joint mappings, skeleton topology, and other metadata to help new users get started with H3.6M
+## Features
 
-The implementation uses **PyTorch**, **NumPy**, and **Matplotlib**, with rotation conversions based on [Roma](https://naver.github.io/roma/). The design goal is simplicity, making it easy to integrate into other research projects.
-
----
+* **SO(3) representation conversion** from D3_Angles to multiple rotation formats
+* **Forward Kinematics (FK)** to convert rotation-based representations to 3D joint positions
+* **3D visualization and animation** of skeleton sequences for validation
+* **Static dimension filtering** and normalization statistics computation
+* **Configuration files** for joint mappings, skeleton topology, and dataset metadata
+* Simple PyTorch-based implementation using [Roma](https://naver.github.io/roma/) for rotation conversions
 
 ## Installation
 
@@ -33,20 +31,17 @@ pip install -r requirements.txt
 pip install -r requirements-gpu.txt
 ```
 
----
-
 ## Downloading the H3.6M Dataset
 
 To use these tools, you must first download the H3.6M dataset:
 
 1. Visit the official H3.6M website: [http://vision.imar.ro/human3.6m/](http://vision.imar.ro/human3.6m/)
-2. Create a login and request access to the dataset.
-3. Download the **D3_Angles** files for all actions and subjects.
-4. 
+2. Create an account and request dataset access
+3. Download the **D3_Angles** files for all actions and subjects:
    * Navigate to **Training Data → By Subject → Poses → D3_Angles**
    * Download and extract each `.tgz` archive into `data/raw`
 
-The expected directory structure is:
+### Expected Directory Structure
 
 ```
 data/raw/
@@ -61,55 +56,78 @@ data/raw/
 │   └── MyPoseFeatures/
 │       └── D3_Angles/
 │           └── ...
+└── ...
 ```
 
-**Note:** The D3_Angles files contain **Cardan/Euler angles** in the ZXY order, defined relative to each joint's parent. The root position (first 3 values) and root rotation (next 3 values) are often discarded for motion prediction training.
+**Note:** The D3_Angles files contain **Euler angles** in the ZXY order, defined relative to each joint's parent. The root position (first 3 values) and root rotation (next 3 values) are often discarded for human motion prediction tasks.
 
----
+## Scripts
 
-## Preprocessing
+### Preprocessing
 
-While this repository does **not directly provide XYZ position preprocessing**, the FK functionality can be adapted to compute world-space joint positions, ignoring the root. What we do provide is preprocessing from D3_angles to:
+Generate a preprocessed dataset for a specific SO(3) representation:
 
-* Removing static dimensions
-* Converting to the desired SO(3) representation
-* Saving processed `.pt` tensors
-* Computing global mean and standard deviation for normalization
-
-You can generate a preprocessed dataset for a specific target representation by calling 
 ```bash
-python -m scripts.preprocess \ -rep "expmap"
+python -m scripts.preprocess \
+    -rep "expmap" \
     -i "data/raw" \
     -o "data/processed"
 ```
----
 
+This will:
+* Apply a default downsampling from the original 50fps to 25fps
+* Remove static dimensions
+* Convert to the desired SO(3) representation
+* Save processed `.pt` tensors
+* Compute global mean and standard deviation for normalization
 
+### Comparison with Expmap Zip Dataset
 
-**Compare expmap preprocessing outputs**
-If you happen to have access to the zip file, you can confirm that our preprocessing generates the same expmap representation by unzipping it in data/ezpmap and running this script, which compares all non static dims for equivalent sequences (same action and subject). We note that in certain cases, the order seems to be swapped. That is, sometimes S1 Eating 1 in our processed dataset = S1 Eating 2 in the zip.
+If you have access to the original expmap zip file, you can verify that our preprocessing generates equivalent outputs:
+
 ```bash
-python -m scripts.compare_expmap -r "data/raw" -p "data/expmap_zip"
+python -m scripts.compare_expmap \
+    -r "data/raw" \
+    -p "data/expmap_zip"
+```
+This compares all non-static dimensions for equivalent sequences (same action and subject). Note that in some cases, the sequence order may differ (e.g., "S1 Eating 1" in our processed dataset might correspond to "S1 Eating 2" in the original zip).
+
+### Visualization
+
+The repository provides tools to visualize skeleton sequences in multiple formats. Example outputs can be found in the `outputs/` folder.
+
+Plot a series of frames:
+```bash
+python -m scripts.plot_sequence \
+    -i "data/processed/expmap/train/S1_walking_1.pt" \
+    -s 0 \
+    -n 10 \
 ```
 
-Confirms equivalence between raw D3_Angles and preprocessed expmap tensors in the zip
+Create MP4 animations of entire sequences:
+```bash
+python -m scripts.animate_sequence \
+    -i "data/processed/quat/train/S1_walking_1.pt" \
+    -n 100 \
+    --label
+```
+This script infers the representation from the parent directory of the data.
 
+### Data Inspection
 
-## Visualization
-
-You can inspect raw or processed files with 3D visualization:
-
+Quickly inspect raw or processed files to view tensor properties and sample frames:
 ```bash
 python -m scripts.inspect_files \
     -i "data/expmap_zip/S1/directions_1.txt" \
        "data/processed/expmap/train/S1_directions_1.pt"
 ```
 
-This will show a 3D skeleton animation for each sequence.
+**Supported formats:** `.cdf` (raw H3.6M), `.pt` (processed tensors), `.txt` (expmap zip format)
 
----
+This displays tensor shape, dtype, min/max values, and the first `n` frames for each file.
 
-## Using in Modeling
+
+### Integration with Your Models
 
 Load processed H3.6M data for training or evaluation:
 
@@ -119,7 +137,7 @@ from h36m_tools.load import load_processed
 train, test, mean, std = load_processed("data/processed", rep="quat")
 ```
 
-Compute standard motion metrics:
+Compute standard motion prediction metrics:
 
 ```python
 from h36m_tools.metrics import mae_l2, mpjpe
@@ -128,13 +146,27 @@ print(mae_l2(y_pred, y_gt, "quat"))
 print(mpjpe(y_pred, y_gt, "quat"))
 ```
 
----
+## Citation
 
-## Inspect multiple files
+If you use this repository in your research or projects, please cite it as follows:
 
-```bash
-python -m scripts.inspect_files \
-    -i "data/expmap_zip/S1/directions_1.txt" "data/processed/expmap/train/S1_directions_1.pt"
+```bibtex
+@misc{h36m_tools,
+  author = {Jinger Chong},
+  title = {H36M Tools: Utilities for Human3.6M Dataset},
+  year = {2025},
+  publisher = {GitHub},
+  url = {https://github.com/jingerchong/h36m_tools}
+}
 ```
 
-Loads a batch of files. easy way to look into some of the raw data, zip data, processed data. works with CDF, PT , and txt In the zip.
+## Development Status
+
+This repository is **under active development** and shared in the spirit of open research.
+
+**Please note:**
+- New features and improvements are added regularly
+- Some functionality may contain bugs or change in future releases
+- Contributions, bug reports, and questions are welcome via GitHub Issues
+
+If you encounter any issues or have questions, please open an issue or reach out directly.
