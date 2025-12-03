@@ -76,6 +76,8 @@ This will:
 * Save processed `.pt` tensors
 * Compute global mean and standard deviation for normalization
 
+**Note:** The train/test split protocol is defined in `metadata.py`
+
 ## Comparison with Expmap Zip Dataset
 
 If you have access to the original expmap zip file, you can verify that our preprocessing script generates equivalent outputs:
