@@ -12,6 +12,7 @@ NUM_JOINTS = 25
 
 
 # Joint offsets as a Torch tensor [J, 3] in XYZ (mm)
+# Adapted from https://github.com/TUM-AAS/motron-cvpr22/blob/master/config/h36m_skeleton.yaml
 OFFSETS = torch.tensor([
     [0.0, 0.0, 0.0],           # 0  Hips
     [-132.948591, 0.0, 0.0],   # 1  RightUpLeg
