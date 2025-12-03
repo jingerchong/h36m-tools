@@ -8,7 +8,9 @@ from h36m_tools.dims import add_dims
 from h36m_tools.visualize import plot_frames
 from h36m_tools.utils import setup_logger, parse_rep_dir
 
+
 logger = logging.getLogger(__name__)
+
 
 def plot_sequence(input_file: Path,
                   output_file: Path = None,
@@ -35,7 +37,7 @@ def plot_sequence(input_file: Path,
         return
 
     logger.info(f"Loading file: {input_file}")
-    rot = read_files([input_file])[0]  # [T, D_rot]
+    rot = read_files(input_file)  # [T, D_rot]
 
     if start_frame >= rot.shape[0]:
         logger.error(f"start_frame {start_frame} exceeds sequence length {rot.shape[0]}")

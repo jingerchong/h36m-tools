@@ -100,7 +100,8 @@ def _update_joint_labels(ax: plt.Axes,
                         frame: np.ndarray, 
                         joint_names: List[str], 
                         text_objs: Optional[List[Text]] = None, 
-                        radius: Optional[float] = None) -> List[Text]:
+                        radius: Optional[float] = None,
+                        screen_offset: float = 10) -> List[Text]:
     """Draw or update text labels for joints."""
     J = frame.shape[0]
     offset = (radius * 0.05) if radius is not None else 30

@@ -55,7 +55,7 @@ def compare_expmap(ref_dir: Path,
                 logger.debug(f"Reference missing: {ref_file}")
                 continue
             try:
-                ref_tensor = read_files([ref_file])[0]
+                ref_tensor = read_files(ref_file)
             except Exception as e:
                 logger.error(f"Failed to read reference tensor {ref_file}: {e}")
                 continue

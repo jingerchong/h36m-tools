@@ -12,23 +12,31 @@ from h36m_tools.metadata import DEVICE
 logger = logging.getLogger(__name__)
 
 
-def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
+def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.Tensor, List[torch.Tensor]]:
     """
-    Read multiple files and convert them into PyTorch tensors.
+    Read one or many files and convert them into PyTorch tensors.
     Supported formats:
         - .pt   : saved PyTorch tensor
         - .cdf  : raw H36M CDF file (from original dataset)
         - .txt  : expmap txt file (from Martinez preprocessing zip)
 
     Args:
-        inputs (list[str | Path]): List of paths to files to load.
+        inputs (str | Path | list[str | Path]): A single file path or a list of file paths to load.
 
     Returns:
-        list[torch.Tensor]: List of tensors loaded from each input file, in original order.
+        torch.Tensor | list[torch.Tensor]:
+            - If a single input file is provided → returns one tensor.
+            - If multiple files are provided → returns a list of tensors,
+            in the same order as the input list.
     """
+    if isinstance(inputs, (str, Path)):
+        inputs = [inputs]
+    elif not isinstance(inputs, (list, tuple)):
+        raise TypeError(f"read_files expected str, Path, or list: got {type(inputs)}")
+    
     outputs = []
 
-    for file in tqdm(inputs, desc="Reading files", disable=len(outputs) < 20):
+    for file in tqdm(inputs, desc="Reading files", disable=len(inputs) < 20):
         suffix = Path(file).suffix.lower()
 
         try:
@@ -48,7 +56,9 @@ def read_files(inputs: List[Union[str, Path]]) -> List[torch.Tensor]:
         except Exception as e:
             logger.error(f"Failed to read {file}: {e}")
             continue
-
+    
+    if len(outputs) == 1:
+        return outputs[0]
     return outputs
 
 
@@ -67,27 +77,3 @@ def save_tensor(path: Union[str, Path], tensor: torch.Tensor):
         logger.debug(f"Saved tensor shape: {tensor.shape} -> {path}")
     except Exception as e:
         logger.error(f"Failed to save tensor to {path}: {e}")
-
-
-def load_tensor(path: Union[str, Path]) -> torch.Tensor:
-    """
-    Load a PyTorch tensor from a .pt file.
-
-    Args:
-        path (str | Path): Path to the .pt file.
-
-    Returns:
-        torch.Tensor: Loaded tensor.
-    """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Tensor file not found: {path}")
-    try:
-        tensor = torch.load(path, map_location=DEVICE)
-        logger.debug(f"Loaded tensor shape: {tensor.shape} ← {path} on {DEVICE}")
-        return tensor
-    except Exception as e:
-        logger.error(f"Failed to load tensor from {path}: {e}")
-        raise
-
-
