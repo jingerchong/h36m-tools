@@ -81,7 +81,7 @@ def load_processed(root_dir: Union[str, Path] = Path("data/processed"),
         mean  (Tensor)
         std   (Tensor)
     """
-    rep_dir = get_rep_dir(root_dir, rep=rep, convention=convention, degrees=degrees)
+    rep_dir = get_rep_dir(Path(root_dir), rep=rep, convention=convention, degrees=degrees)
     if not rep_dir.exists():
         raise FileNotFoundError(f"Processed directory not found: {rep_dir}")
 
