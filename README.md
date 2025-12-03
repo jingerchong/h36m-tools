@@ -140,7 +140,7 @@ If you use this repository in your research or projects, please cite it as follo
 ```bibtex
 @misc{h36m_tools,
   author = {Jinger Chong},
-  title = {H36M Tools: Utilities for Human3.6M Dataset},
+  title = {H3.6M Tools},
   year = {2025},
   publisher = {GitHub},
   url = {https://github.com/jingerchong/h36m_tools}
