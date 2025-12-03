@@ -149,4 +149,4 @@ If you use this repository in your research or projects, please cite it as follo
 
 ## Development Status
 
-This repository is **under active development** and shared in the spirit of open research. New features and improvements are being added and some functionality may contain bugs or change in future releases. Contributions, bug reports, and questions are welcome via GitHub.
+This repository is **under active development** and has been shared publicly in the spirit of open research. New features and improvements are being added and some functionality may contain bugs or change in future releases. Contributions, bug reports, and questions are welcome via GitHub.
