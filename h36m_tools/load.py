@@ -54,7 +54,7 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
     return data
 
 
-def load_processed(root_dir: Union[str, Path] = Path("data/processed"),
+def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/processed"),
                    rep: str = "expmap",
                    convention: str = "ZXY",
                    degrees: bool = False
@@ -70,7 +70,7 @@ def load_processed(root_dir: Union[str, Path] = Path("data/processed"),
             std.pt
 
     Args:
-        root_dir (Path): Base processed directory (e.g. data/processed)
+        root_dir (Path): Base processed directory (e.g. h36m-tools/data/processed)
         rep (str): Representation type ("expmap", "quat", "rot6", ...)
         convention (str): Euler convention if used during preprocessing
         degrees (bool): Whether Euler was saved in degrees

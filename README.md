@@ -30,6 +30,7 @@ pip install -r requirements.txt
 # For GPU-enabled environments
 pip install -r requirements-gpu.txt
 ```
+For saving animations to mp4, additionally install [`ffmpeg`](https://www.ffmpeg.org/).
 
 ## Downloading the H3.6M Dataset
 
@@ -116,12 +117,17 @@ This displays tensor shape, dtype, min/max values, and the first `n` frames for 
 
 ## Integration with Models
 
+Install as Python package to use modules in other projects
+```bash
+pip install .
+```
+
 Load processed H3.6M data for training or evaluation:
 
 ```python
 from h36m_tools.load import load_processed
 
-train, test, mean, std = load_processed("data/processed", rep="quat")
+train, test, mean, std = load_processed("h36m-tools/data/processed", rep="quat")
 ```
 
 Compute standard human motion prediction metrics:
