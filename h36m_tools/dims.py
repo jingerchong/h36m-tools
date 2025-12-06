@@ -1,5 +1,5 @@
 import torch
-from typing import Iterable, Union
+from typing import Union, Iterable, List, Sequence, Tuple
 import logging
 
 
@@ -85,3 +85,74 @@ def add_dims(tensor: torch.Tensor,
     logger.debug(f"add_dims: selected_dims={list(selected_dims)}, axis={axis}, "
                  f"tensor_shape={tensor.shape}, output_shape={out.shape}")
     return out
+
+
+def remap_index_group(total_items: int,
+                      removed_indices: Iterable[int],
+                      group: List[Sequence[int]],
+                      ) -> List[Tuple[int, ...]]:
+    """
+    Remap a list of index sequences after removing certain indices.
+
+    Args:
+        total_items: total number of items before removal
+        removed_indices: indices to remove
+        group: list of sequences (e.g., chains or any grouped indices)
+
+    Returns:
+        remapped_group: list of sequences remapped according to the new indices
+    """
+    removed_set = set(removed_indices)
+    mapping = {i: (j := None) if i in removed_set else (j := sum(1 for k in range(i) if k not in removed_set))
+               for i in range(total_items)}
+    
+    remapped_group = [
+        tuple(mapping[i] for i in seq if mapping[i] is not None)
+        for seq in group
+        if any(mapping[i] is not None for i in seq)
+    ]
+
+    logger.debug(f"remap_index_group: original_group={group} -> remapped_group={remapped_group}")
+    return remapped_group
+
+
+def extract_subtensors(tensor: torch.Tensor, valid_dims: List[List[int]]):
+    """
+    Extract per-item subtensors from a tensor of shape [T, N, D].
+
+    Args:
+        tensor: Tensor of shape [T, N, D].
+        valid_dims: list of length N; valid_dims[i] contains dim indices to keep for item i.
+
+    Returns:
+        List of N tensors, each of shape [T, len(valid_dims[i])].
+    """
+    _, N, _ = tensor.shape
+    if len(valid_dims) != N:
+        raise ValueError(f"valid_dims has length {len(valid_dims)}, but x has {N} items")
+    subtensors = [tensor[:, i, valid_dims[i]] for i in range(N)]
+
+    logger.debug(f"extract_subtensors: input={tuple(tensor.shape)} -> output={[tuple(t.shape) for t in subtensors]}")
+    return subtensors
+
+
+def compute_dynamic_dims(std: torch.Tensor, threshold: float = 1e-4) -> List[List[int]]:
+    """
+    Compute dynamic dimensions per item based on a variance threshold.
+
+    Args:
+        std: Tensor of shape [N, D] representing per-dim standard deviations.
+        threshold: Minimum std value to consider a dimension dynamic.
+
+    Returns:
+        List of length N; each element is a list of dynamic dim indices for that item.
+    """
+    N, D = std.shape
+    dynamic_dims: List[List[int]] = []
+
+    for item_idx in range(N):
+        item_dynamic_dims = [dim_idx for dim_idx in range(D) if std[item_idx, dim_idx] > threshold]
+        dynamic_dims.append(item_dynamic_dims)
+
+    logger.debug(f"compute_dynamic_dims: dynamic_dims_lengths={[len(v) for v in dynamic_dims]}")
+    return dynamic_dims

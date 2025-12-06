@@ -139,8 +139,14 @@ PROTOCOL = {
 STATIC_JOINTS = (0, 17, 18, 23, 24)
 
 
+KINEMATIC_CHAINS = [
+    (0, 1, 2, 3, 4), 
+    (5, 6, 7, 8), 
+    (9, 10, 11, 12), 
+    (13, 14, 15, 16, 17, 18), 
+    (19, 20, 21, 22, 23, 24)
+]
+
+
 DOWNSAMPLE_FACTOR = 2
 RAW_FPS = 50
-
-
-# expmap site add in
