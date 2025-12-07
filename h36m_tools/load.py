@@ -33,7 +33,7 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
     if not input_files:
         raise FileNotFoundError("No D3_Angles CDF files found")
 
-    logger.info(f"Found {len(input_files)} D3_Angles CDF files to process")
+    logger.debug(f"Found {len(input_files)} D3_Angles CDF files to process")
     all_angles = read_files(input_files)
     data: Dict[str, Dict[str, List[torch.Tensor]]] = {}
 
@@ -85,7 +85,6 @@ def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/processed"
     if not rep_dir.exists():
         raise FileNotFoundError(f"Processed directory not found: {rep_dir}")
 
-    logger.info(f"Loading processed data from {rep_dir}")
     mean = read_files(rep_dir / "mean.pt")
     std = read_files(rep_dir / "std.pt")
 

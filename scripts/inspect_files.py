@@ -29,24 +29,23 @@ def inspect_files(paths: list[Path], n_frames: int = 1):
     tensors = read_files(paths)
 
     for path, tensor in zip(paths, tensors):
-
-        logging.info("")
-        logging.info(f"Loaded tensor from: {path}")
-        logging.info(f"Shape: {tensor.shape}")
-        logging.info(f"Dtype: {tensor.dtype}")
-        logging.info(f"Device (loaded): {tensor.device}")
+        logger.info("")
+        logger.info(f"Loaded tensor from: {path}")
+        logger.info(f"Shape: {tensor.shape}")
+        logger.info(f"Dtype: {tensor.dtype}")
+        logger.info(f"Device (loaded): {tensor.device}")
 
         try:
-            logging.info(f"Min:  {tensor.min().item():.4f}")
-            logging.info(f"Max:  {tensor.max().item():.4f}")
+            logger.info(f"Min:  {tensor.min().item():.4f}")
+            logger.info(f"Max:  {tensor.max().item():.4f}")
         except Exception:
-            logging.warning("Could not compute statistics (tensor may be non-numeric).")
+            logger.warning("Could not compute statistics (tensor may be non-numeric).")
 
         if tensor.ndim >= 1:
             n = min(n_frames, tensor.shape[0])
-            logging.info(f"First {n} frame(s):\n{tensor[:n]}")
+            logger.info(f"First {n} frame(s):\n{tensor[:n]}")
         else:
-            logging.info(f"Tensor value:\n{tensor}")
+            logger.info(f"Tensor value:\n{tensor}")
 
 
 if __name__ == "__main__":
