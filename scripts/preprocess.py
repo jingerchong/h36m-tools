@@ -4,7 +4,7 @@ import logging
 import shutil
 
 from h36m_tools.rotations import to_quat, quat_to
-from h36m_tools.files import save_tensor
+from h36m_tools.files import save_object
 from h36m_tools.metadata import PROTOCOL, STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
 from h36m_tools.load import load_raw
 from h36m_tools.normalize import compute_stats
@@ -73,15 +73,15 @@ def preprocess(raw_dir: Path,
                 data_rep = quat_to(quat, rep, **rep_kwargs)
 
                 filename = f"{subject}_{action}_{idx+1}.pt"
-                save_tensor(split_dir / filename, data_rep)
+                save_object(split_dir / filename, data_rep)
 
                 if subject in PROTOCOL["train"]:
                     train_tensors.append(data_rep)
 
     logger.info("Computing normalization statistics...")
     mean, std = compute_stats(train_tensors)
-    save_tensor(rep_dir / "mean.pt", mean)
-    save_tensor(rep_dir / "std.pt", std)
+    save_object(rep_dir / "mean.pt", mean)
+    save_object(rep_dir / "std.pt", std)
     
     logger.info(f"Preprocessing finished. Processed data saved in {rep_dir}")
 
