@@ -64,7 +64,7 @@ def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.
 
 def save_object(path: Union[str, Path], obj: Any):
     """
-    Save a PyTorch-serializable object (.pt file).
+    Save a PyTorch-serializable object (.pt or .pth file).
 
     Supports:
         - torch.Tensor
