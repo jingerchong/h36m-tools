@@ -65,6 +65,7 @@ def plot_sequence(input_file: Path,
 
 
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description="Plot H3.6M skeleton frames")
     parser.add_argument("-i", "--input", dest="input_file", type=Path, required=True, help="Path to processed rotation tensor")
     parser.add_argument("-o", "--output", dest="output_file", type=Path, default=None, help="Output image file path (default: outputs/<rep>_<input>_<start_frame>.png)")
