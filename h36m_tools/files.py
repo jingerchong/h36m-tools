@@ -2,7 +2,7 @@ from pathlib import Path
 import cdflib
 import torch
 import logging
-from typing import List, Union
+from typing import List, Union, Any
 from tqdm import tqdm
 import numpy as np
 
@@ -62,18 +62,21 @@ def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.
     return outputs
 
 
-def save_tensor(path: Union[str, Path], tensor: torch.Tensor):
+def save_object(path: Union[str, Path], obj: Any):
     """
-    Save a single PyTorch tensor to a .pt file.
+    Save a PyTorch-serializable object (.pt file).
 
-    Args:
-        path (str | Path): Output file path to save the tensor.
-        tensor (torch.Tensor): Tensor to save.
+    Supports:
+        - torch.Tensor
+        - dict
+        - list
+        - anything torch.save can handle
     """
     try:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(tensor, path)
-        logger.debug(f"Saved tensor shape: {tensor.shape} -> {path}")
+        torch.save(obj, path)
+        if isinstance(obj, torch.Tensor):
+            logger.debug(f"Saved tensor with shape {obj.shape} -> {path}")
     except Exception as e:
-        logger.error(f"Failed to save tensor to {path}: {e}")
+        logger.error(f"Failed to save object to {path}: {e}")
