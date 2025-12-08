@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
            rep: str = "quat",
-           ignore_root: bool = True,
+           ignore_root: bool = False,
            reduce_all: bool = False,
            **kwargs) -> torch.Tensor:
     """
@@ -53,7 +53,7 @@ def mae_l2(y_pred: torch.Tensor,
 def mpjpe(y_pred: torch.Tensor,
           y_gt: torch.Tensor,
           rep: str = "quat",
-          ignore_root: bool = True,
+          ignore_root: bool = False,
           reduce_all: bool = False,
           **kwargs) -> torch.Tensor:
     """
