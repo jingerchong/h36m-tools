@@ -16,18 +16,17 @@ def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.
     """
     Read one or many files and convert them into PyTorch tensors.
     Supported formats:
-        - .pt   : saved PyTorch tensor
-        - .cdf  : raw H36M CDF file (from original dataset)
-        - .txt  : expmap txt file (from Martinez preprocessing zip)
+        - .pt/.pth : saved PyTorch tensor or model state dict
+        - .cdf     : raw H36M CDF file (from original dataset)
+        - .txt     : expmap txt file (from Martinez preprocessing zip)
 
     Args:
         inputs (str | Path | list[str | Path]): A single file path or a list of file paths to load.
 
     Returns:
-        torch.Tensor | list[torch.Tensor]:
-            - If a single input file is provided → returns one tensor.
-            - If multiple files are provided → returns a list of tensors,
-            in the same order as the input list.
+        torch.Tensor | dict | list[torch.Tensor | dict]:
+            - If a single input file is provided -> returns one tensor or dict.
+            - If multiple files are provided -> returns a list, in the same order as the input list.
     """
     if isinstance(inputs, (str, Path)):
         inputs = [inputs]
@@ -40,7 +39,7 @@ def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.
         suffix = Path(file).suffix.lower()
 
         try:
-            if suffix == ".pt":
+            if suffix in (".pt", ".pth"):
                 outputs.append(torch.load(file, map_location=DEVICE))
             elif suffix == ".cdf":
                 cdf = cdflib.CDF(str(file))
@@ -51,7 +50,7 @@ def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.
             else:
                 logger.error(f"Skipped unsupported file type: {file}")
                 continue
-            logger.debug(f"Loaded {file} -> tensor shape: {outputs[-1].shape}")
+            logger.debug(f"Loaded {file} -> type: {type(outputs[-1])}, shape: {getattr(outputs[-1], 'shape', 'N/A')}")
 
         except Exception as e:
             logger.error(f"Failed to read {file}: {e}")
