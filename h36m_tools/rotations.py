@@ -87,3 +87,32 @@ def to_quat(rot: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
 
     logger.debug(f"to_quat('{rep}'): input {rot.shape} -> output {quat.shape}")
     return quat
+
+
+def mean_rotation(rot: torch.Tensor, rep: str, axis: int = -1, **kwargs) -> torch.Tensor:
+    """
+    Compute the mean rotation over a given axis using roma.special_procrustes
+    (chordal L2 rotation averaging).
+
+    Args:
+        rot: rotation in any representation [..., D]
+        rep: "quat" | "expmap" | "euler" | "rot6" | "rot9"
+        axis: which axis to average over (default = -1)
+        **kwargs: passed to Euler conversions
+
+    Returns:
+        Rotation in SAME representation as input, with dimension reduced on `axis`.
+    """
+    quat = to_quat(rot, rep, **kwargs)        # [..., 4]
+    R = roma.unitquat_to_rotmat(quat)         # [..., 3, 3]
+
+    R = R.movedim(axis, 0)                    # [N, ..., 3, 3]
+    N = R.shape[0]
+    M = R.sum(dim=0) / N                      # [..., 3, 3]
+    R_mean = roma.special_procrustes(M)       # [..., 3, 3]
+
+    quat_mean = roma.rotmat_to_unitquat(R_mean)
+    out = quat_to(quat_mean, rep, **kwargs)
+
+    logger.debug(f"mean_rotation('{rep}'): input {rot.shape} -> output {out.shape}")
+    return out
