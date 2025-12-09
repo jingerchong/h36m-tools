@@ -35,14 +35,14 @@ def mae_l2(y_pred: torch.Tensor,
     quat_pred = to_quat(y_pred, rep=rep, **kwargs)
     quat_gt = to_quat(y_gt, rep=rep, **kwargs)
     
-    euler_pred = quat_to(quat_pred, rep="euler", convention="ZYX", **kwargs)
-    euler_gt = quat_to(quat_gt, rep="euler", convention="ZYX", **kwargs)
+    euler_pred = quat_to(quat_pred, rep="euler", convention="ZYX")
+    euler_gt = quat_to(quat_gt, rep="euler", convention="ZYX")
 
     diff = torch.remainder(euler_gt - euler_pred + torch.pi, 2 * torch.pi) - torch.pi  # [..., J]
     if ignore_root:
         diff[..., 0, :] = 0.0  
 
-    error = diff.norm(dim=-1).mean(dim=-1)  # [...]
+    error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
     if reduce_all:
         error = error.mean()  # scalar
     
