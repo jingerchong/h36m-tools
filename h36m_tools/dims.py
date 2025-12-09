@@ -116,26 +116,6 @@ def remap_index_group(total_items: int,
     return remapped_group
 
 
-def extract_subtensors(tensor: torch.Tensor, valid_dims: List[List[int]]):
-    """
-    Extract per-item subtensors from a tensor of shape [T, N, D].
-
-    Args:
-        tensor: Tensor of shape [T, N, D].
-        valid_dims: list of length N; valid_dims[i] contains dim indices to keep for item i.
-
-    Returns:
-        List of N tensors, each of shape [T, len(valid_dims[i])].
-    """
-    _, N, _ = tensor.shape
-    if len(valid_dims) != N:
-        raise ValueError(f"valid_dims has length {len(valid_dims)}, but x has {N} items")
-    subtensors = [tensor[:, i, valid_dims[i]] for i in range(N)]
-
-    logger.debug(f"extract_subtensors: input={tuple(tensor.shape)} -> output={[tuple(t.shape) for t in subtensors]}")
-    return subtensors
-
-
 def compute_dynamic_dims(std: torch.Tensor, threshold: float = 1e-4) -> List[List[int]]:
     """
     Compute dynamic dimensions per item based on a variance threshold.
