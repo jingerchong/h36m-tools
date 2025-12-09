@@ -159,11 +159,8 @@ def standardize_action(raw_action: str) -> str:
         str: A cleaned, standardized action string.
     """
     action = "".join(c for c in raw_action.lower() if c.isalpha())
-
     if "walk" in action and "walking" not in action:
         action = action.replace("walk", "walking")
-
     elif "photo" in action and "takingphoto" not in action:
         action = "takingphoto"
-
     return action
