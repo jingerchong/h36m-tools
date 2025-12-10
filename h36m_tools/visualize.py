@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import List, Optional, Tuple, Union, Any
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,8 +11,9 @@ from h36m_tools.metadata import JOINT_NAMES, RIGHT_LEFT_JOINTS_IDX, PARENTS, DOW
 from h36m_tools.kinematics import fk
 
 
-RotData = Union[np.ndarray, torch.Tensor]
 logger = logging.getLogger(__name__)
+
+RotData = Union[np.ndarray, torch.Tensor]
 
 
 def _get_right_joints(right_left_joints_idx: List[Tuple[int, int]] = RIGHT_LEFT_JOINTS_IDX) -> List[int]:

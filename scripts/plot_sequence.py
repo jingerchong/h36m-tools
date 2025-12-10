@@ -6,7 +6,8 @@ from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS
 from h36m_tools.files import read_files
 from h36m_tools.dims import add_dims
 from h36m_tools.visualize import plot_frames
-from h36m_tools.utils import setup_logger, parse_rep_dir
+from h36m_tools.logging import setup_logger
+from h36m_tools.representations import parse_rep_dir
 
 
 logger = logging.getLogger(__name__)

@@ -2,16 +2,41 @@ import argparse
 from pathlib import Path
 import logging
 from tqdm import tqdm
+import torch
 
 from h36m_tools.files import read_files
 from h36m_tools.dims import remove_dims
 from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
-from h36m_tools.utils import setup_logger, compare_tensors
+from h36m_tools.logging import setup_logger
 
 
 logger = logging.getLogger(__name__)
 
 SITE_JOINTS = (0, 6, 11, 16, 22, 24, 30, 32)
+
+
+def _compare_tensors(processed: torch.Tensor, reference: torch.Tensor, name: str = "", atol: float = 1e-4) -> bool:
+    """Compare two tensors and log detailed statistics if they differ."""
+    reference = reference.to(processed.device)
+
+    if processed.shape != reference.shape:
+        logger.debug(f"Shape mismatch: {name}")
+        logger.debug(f"Shape processed: {processed.shape}, reference: {reference.shape}")
+        return False
+
+    if torch.allclose(processed, reference, atol=atol):
+        return True
+
+    logger.debug(f"Tensors do not match: {name}")
+    diff = processed - reference
+    n_diff = torch.sum(diff != 0).item()
+    max_diff = torch.max(diff.abs()).item()
+    mean_diff = torch.mean(diff.abs()).item()
+    logger.debug(f"Number of differing elements: {n_diff}")
+    logger.debug(f"Max absolute difference: {max_diff:.4f}")
+    logger.debug(f"Mean absolute difference: {mean_diff:.4f}")
+
+    return False
 
 
 def compare_expmap(ref_dir: Path, 
@@ -66,7 +91,7 @@ def compare_expmap(ref_dir: Path,
             ref_tensor = remove_dims(ref_tensor, SITE_JOINTS, NUM_JOINTS + len(SITE_JOINTS), -2)
             ref_tensor = remove_dims(ref_tensor, STATIC_JOINTS, NUM_JOINTS, -2)
 
-            if compare_tensors(processed_tensor, -ref_tensor, name=f"{file} vs {ref_file}"):
+            if _compare_tensors(processed_tensor, -ref_tensor, name=f"{file} vs {ref_file}"):
                 match_found = True
                 tqdm.write(f"Match found {file} <=> {ref_file}")
                 break  

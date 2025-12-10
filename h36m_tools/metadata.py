@@ -1,7 +1,6 @@
 import torch
 
-
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from h36m_tools.files import DATA_DEVICE
 
 
 # Number of rotational joints in raw H3.6M D3_Angles
@@ -43,7 +42,7 @@ OFFSETS = torch.tensor([
     [0.0, 251.72868, 0.0],      # 22 RightHand
     [0.0, 0.0, 0.0],            # 23 RightHandThumb
     [0.0, 137.499922, 0.0],     # 24 R_Wrist_End
-], dtype=torch.float32, device=DEVICE)
+], dtype=torch.float32, device=DATA_DEVICE)
 
 
 # Parent indices for each joint, -1 indicates no parent

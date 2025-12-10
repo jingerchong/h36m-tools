@@ -9,7 +9,8 @@ from h36m_tools.metadata import PROTOCOL, STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_
 from h36m_tools.load import load_raw
 from h36m_tools.normalize import compute_stats
 from h36m_tools.dims import remove_dims
-from h36m_tools.utils import setup_logger, get_rep_dir
+from h36m_tools.logging import setup_logger
+from h36m_tools.representations import get_rep_dir
 
 
 logger = logging.getLogger(__name__)

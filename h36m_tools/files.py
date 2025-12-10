@@ -2,17 +2,18 @@ from pathlib import Path
 import cdflib
 import torch
 import logging
-from typing import List, Union, Any
+from typing import List, Union, Any, Union
 from tqdm import tqdm
 import numpy as np
-
-from h36m_tools.metadata import DEVICE
 
 
 logger = logging.getLogger(__name__)
 
+DATA_DEVICE = "cpu"  # Default CPU, discouraged can also be changed to GPU 
+# DATA_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
-def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.Tensor, List[torch.Tensor]]:
+
+def read_files(inputs: Union[str, Path, List[Union[str, Path]]], device: torch.device = DATA_DEVICE) -> Union[torch.Tensor, List[torch.Tensor]]:
     """
     Read one or many files and convert them into PyTorch tensors.
     Supported formats:
@@ -40,13 +41,13 @@ def read_files(inputs: Union[str, Path, List[Union[str, Path]]]) -> Union[torch.
 
         try:
             if suffix in (".pt", ".pth"):
-                outputs.append(torch.load(file, map_location=DEVICE))
+                outputs.append(torch.load(file, map_location=device))
             elif suffix == ".cdf":
                 cdf = cdflib.CDF(str(file))
-                outputs.append(torch.tensor(cdf.varget("Pose"), device=DEVICE).squeeze(0))
+                outputs.append(torch.tensor(cdf.varget("Pose"), device=device).squeeze(0))
             elif suffix == ".txt":
                 pose_np = np.loadtxt(file, delimiter=",", dtype=np.float32)
-                outputs.append(torch.tensor(pose_np, device=DEVICE))
+                outputs.append(torch.tensor(pose_np, device=device))
             else:
                 logger.error(f"Skipped unsupported file type: {file}")
                 continue

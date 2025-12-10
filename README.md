@@ -27,7 +27,8 @@ Install the required dependencies via pip:
 # For CPU or Colab
 pip install -r requirements.txt
 
-# For GPU-enabled environments
+# DISCOURAGED
+# For GPU-enabled environments (default is CPU, so have to change DATA_DEVICE in files.py)
 pip install -r requirements-gpu.txt
 ```
 For saving animations to mp4, additionally install [`ffmpeg`](https://www.ffmpeg.org/).
@@ -67,7 +68,7 @@ data/raw/
 Generate a preprocessed dataset for a specific SO(3) representation:
 
 ```bash
-python -m scripts.preprocess -rep "expmap" -i "data/raw" -o "data/processed"
+python -m scripts.preprocess -r "expmap" -i "data/raw" -o "data/processed"
 ```
 
 This will:
@@ -84,7 +85,7 @@ This will:
 If you have access to the original expmap zip file, you can verify that our preprocessing script generates equivalent outputs:
 
 ```bash
-python -m scripts.compare_expmap -r "data/raw" -p "data/expmap_zip"
+python -m scripts.compare_expmap -r "data/expmap_zip" -p "data/processed"
 ```
 This compares all non-static dimensions for equivalent sequences (same action and subject). Note that in some cases, the sequence order may differ (e.g., "S1 Eating 1" in our processed dataset might correspond to "S1 Eating 2" in the original zip).
 
@@ -94,7 +95,7 @@ The repository provides tools to visualize skeleton sequences in multiple format
 
 Plot a series of frames:
 ```bash
-python -m scripts.plot_sequence -i "data/processed/expmap/train/S1_walking_1.pt -s 100" 
+python -m scripts.plot_sequence -i "data/processed/expmap/train/S1_walking_1.pt" -s 100 
 ```
 
 Create MP4 animations of entire sequences:

@@ -3,7 +3,7 @@ import torch
 import logging
 from pathlib import Path
 
-from h36m_tools.utils import setup_logger
+from h36m_tools.logging import setup_logger
 from h36m_tools.files import read_files
 
 
