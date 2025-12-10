@@ -111,18 +111,21 @@ def nll_gaussian(y_pred_samples: torch.Tensor,
     Returns:
         Tensor of shape [T], NLL per time step.
     """
+    S = y_pred_samples.shape[0]
+    if S < 1000:
+        logger.warning(f"Number of stochastic samples is small: {S} < {1000}. NLL estimates may be unreliable or very high.")
+
     pos_pred = fk(y_pred_samples, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
     pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
 
     if time_dim != 1:
         pos_pred = pos_pred.transpose(time_dim, 2)  # move time to axis 2
         pos_gt   = pos_gt.transpose(time_dim, 1)    # same for ground truth
-        
+
     *batch_dims, T, J, D = pos_gt.shape
     B = int(torch.tensor(batch_dims).prod().item())
     pos_gt_flat   = pos_gt.reshape(B, T, J, D)          # [B, T, J, D]
     pos_pred_flat = pos_pred.reshape(pos_pred.shape[0], B, T, J, D)  # [S, B, T, J, D]
-    S = pos_pred_flat.shape[0]
 
     mu   = pos_pred_flat.mean(dim=0)        # [B, T, J, D]
     stds = pos_pred_flat.std(dim=0)         # [B, T, J, D]
