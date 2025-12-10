@@ -9,8 +9,8 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-DATA_DEVICE = "cpu"  # Default CPU, discouraged can also be changed to GPU 
-# DATA_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
+
+DATA_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
 
 def read_files(inputs: Union[str, Path, List[Union[str, Path]]], device: torch.device = DATA_DEVICE) -> Union[torch.Tensor, List[torch.Tensor]]:

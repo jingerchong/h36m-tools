@@ -27,8 +27,7 @@ Install the required dependencies via pip:
 # For CPU or Colab
 pip install -r requirements.txt
 
-# DISCOURAGED
-# For GPU-enabled environments (default is CPU, so have to change DATA_DEVICE in files.py)
+# For GPU-enabled environments (default is GPU)
 pip install -r requirements-gpu.txt
 ```
 For saving animations to mp4, additionally install [`ffmpeg`](https://www.ffmpeg.org/).
