@@ -67,10 +67,12 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
 def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/processed"),
                    rep: str = "expmap",
                    convention: str = "ZXY",
-                   degrees: bool = False
-                   ) -> Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor, torch.Tensor]:
+                   degrees: bool = False,
+                   include_stats: bool = False,
+                   ) -> Union[Tuple[List[torch.Tensor], List[torch.Tensor]],
+                              Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor, torch.Tensor]]:
     """
-    Load preprocessed H3.6M data (train/test splits + normalization stats).
+    Load preprocessed H3.6M data (train/test splits + optional normalization stats).
 
     Directory structure assumed:
         root_dir/rep=<rep>_conv=<convention>_deg=<degrees>/
@@ -84,25 +86,29 @@ def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/processed"
         rep (str): Representation type ("expmap", "quat", "rot6", ...)
         convention (str): Euler convention if used during preprocessing
         degrees (bool): Whether Euler was saved in degrees
+        include_stats (bool): If True, also return mean and std tensors
 
     Returns:
-        train (list[Tensor])
-        test  (list[Tensor])
-        mean  (Tensor)
-        std   (Tensor)
+        If include_stats=False:
+            train (list[Tensor]), test (list[Tensor])
+        If include_stats=True:
+            train (list[Tensor]), test (list[Tensor]), mean (Tensor), std (Tensor)
     """
     rep_dir = get_rep_dir(Path(root_dir), rep=rep, convention=convention, degrees=degrees)
     if not rep_dir.exists():
         raise FileNotFoundError(f"Processed directory not found: {rep_dir}")
 
-    mean = read_files(rep_dir / "mean.pt")
-    std = read_files(rep_dir / "std.pt")
-
     train_dir = rep_dir / "train"
     test_dir = rep_dir / "test"
     if not train_dir.exists() or not test_dir.exists():
         raise FileNotFoundError(f"Missing train/test folders inside {rep_dir}")
+
     train = read_files(sorted(train_dir.glob("*.pt")))
     test = read_files(sorted(test_dir.glob("*.pt")))
 
-    return train, test, mean, std
+    if include_stats:
+        mean = read_files(rep_dir / "mean.pt")
+        std = read_files(rep_dir / "std.pt")
+        return train, test, mean, std
+    else:
+        return train, test
