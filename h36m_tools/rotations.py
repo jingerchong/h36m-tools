@@ -116,3 +116,27 @@ def mean_rotation(rot: torch.Tensor, rep: str, axis: int = -1, **kwargs) -> torc
 
     logger.debug(f"mean_rotation('{rep}'): input {rot.shape} -> output {out.shape}")
     return out
+
+
+def delta_rotation(target: torch.Tensor, anchor: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
+    """
+    Compute relative (delta) rotation: R_delta = R_anchor^{-1} ∘ R_target
+
+    Args:
+        target: [..., D] rotation at time t
+        anchor: [..., D] reference rotation
+        rep: rotation representation ("quat" | "expmap" | "euler" | "rot6" | "rot9")
+        **kwargs: passed to conversion functions
+
+    Returns:
+        delta rotation in SAME representation as input [..., D]
+    """
+    q_t = to_quat(target, rep, **kwargs)   # [..., 4]
+    q_a = to_quat(anchor, rep, **kwargs)   # [..., 4]
+
+    # Relative rotation: q_delta = q_a^{-1} ⊗ q_t
+    q_delta = roma.quat_mul(roma.quat_conjugate(q_a), q_t)
+    out = quat_to(q_delta, rep, **kwargs)
+
+    logger.debug(f"delta_rotation('{rep}'): target {target.shape}, anchor {anchor.shape} -> output {out.shape}")
+    return out
