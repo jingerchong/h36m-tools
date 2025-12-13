@@ -127,7 +127,7 @@ Load processed H3.6M data for training or evaluation:
 ```python
 from h36m_tools.load import load_processed
 
-train, test, mean, std = load_processed("h36m-tools/data/processed", rep="quat")
+train, test, mean, std = load_processed("h36m-tools/data/processed", rep="quat", include_stats=True)
 ```
 
 Compute standard human motion prediction metrics:
