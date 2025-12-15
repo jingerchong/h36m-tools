@@ -140,3 +140,38 @@ def delta_rotation(target: torch.Tensor, anchor: torch.Tensor, rep: str, **kwarg
 
     logger.debug(f"delta_rotation('{rep}'): target {target.shape}, anchor {anchor.shape} -> output {out.shape}")
     return out
+
+
+def add_rotation(delta: torch.Tensor, anchor: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
+    """
+    Apply a relative (delta) rotation to an anchor rotation.
+
+    Computes:
+        R_out = R_delta ∘ R_anchor
+
+    This is the inverse of `delta_rotation`, where:
+        R_delta = R_anchor^{-1} ∘ R_target
+
+    Args:
+        delta: Relative rotation in given representation.
+            Shape: [..., D]
+        anchor: Anchor (base) rotation in same representation.
+            Shape: [..., D] (broadcastable to rot_delta)
+        rep: Rotation representation of inputs and output.
+            One of: {"quat", "expmap", "euler", "rot6", "rot9"}
+        **kwargs: Passed to conversion utilities (e.g. Euler convention, degrees).
+
+    Returns:
+        Absolute rotation in the same representation.
+        Shape: [..., D]
+    """
+    q_delta = to_quat(delta, rep, **kwargs)   # [..., 4]
+    q_anchor = to_quat(anchor, rep, **kwargs) # [..., 4]
+
+    # Compose rotations: q_out = q_delta ⊗ q_anchor
+    q_out = roma.quat_product(q_delta, q_anchor)
+
+    out = quat_to(q_out, rep, **kwargs)
+
+    logger.debug(f"add_rotation('{rep}'): delta {delta.shape}, anchor {anchor.shape} -> out {out.shape}")
+    return out
