@@ -135,7 +135,7 @@ def delta_rotation(target: torch.Tensor, anchor: torch.Tensor, rep: str, **kwarg
     q_a = to_quat(anchor, rep, **kwargs)   # [..., 4]
 
     # Relative rotation: q_delta = q_a^{-1} ⊗ q_t
-    q_delta = roma.quat_mul(roma.quat_conjugate(q_a), q_t)
+    q_delta = roma.quat_product(roma.quat_conjugation(q_a), q_t)
     out = quat_to(q_delta, rep, **kwargs)
 
     logger.debug(f"delta_rotation('{rep}'): target {target.shape}, anchor {anchor.shape} -> output {out.shape}")
