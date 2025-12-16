@@ -89,7 +89,7 @@ def to_quat(rot: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
     return quat
 
 
-def mean_rotation(rot: torch.Tensor, rep: str, axis: int = -1, **kwargs) -> torch.Tensor:
+def mean_rotation(rot: torch.Tensor, rep: str, axis: int = 0, **kwargs) -> torch.Tensor:
     """
     Compute the mean rotation over a given axis using roma.special_procrustes
     (chordal L2 rotation averaging).
