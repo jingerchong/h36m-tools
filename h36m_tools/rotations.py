@@ -106,9 +106,12 @@ def mean_rotation(rot: torch.Tensor, rep: str, axis: int = 0, **kwargs) -> torch
     quat = to_quat(rot, rep, **kwargs)        # [..., 4]
     R = roma.unitquat_to_rotmat(quat)         # [..., 3, 3]
 
+    axis = axis % R.ndim
+    if axis >= R.ndim - 2:
+        raise ValueError("axis must index a batch dimension, not the 3x3 rotation matrix")
     R = R.movedim(axis, 0)                    # [N, ..., 3, 3]
+    
     R_mean = roma.special_procrustes(R.mean(dim=0))       # [..., 3, 3]
-
     quat_mean = roma.rotmat_to_unitquat(R_mean)
     out = quat_to(quat_mean, rep, **kwargs)
 
