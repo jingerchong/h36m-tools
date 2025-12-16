@@ -68,7 +68,7 @@ def to_quat(rot: torch.Tensor, rep: str, **kwargs) -> torch.Tensor:
         Tensor [..., 4] with quaternions in XYZW format (Roma convention)
     """
     if rep == "quat":
-        quat = rot
+        quat = roma.quat_normalize(rot)
     elif rep == "expmap":
         quat = roma.rotvec_to_unitquat(rot)
     elif rep == "euler":
@@ -97,7 +97,7 @@ def mean_rotation(rot: torch.Tensor, rep: str, axis: int = 0, **kwargs) -> torch
     Args:
         rot: rotation in any representation [..., D]
         rep: "quat" | "expmap" | "euler" | "rot6" | "rot9"
-        axis: which axis to average over (default = -1)
+        axis: which axis to average over (default = 0)
         **kwargs: passed to Euler conversions
 
     Returns:
@@ -107,9 +107,7 @@ def mean_rotation(rot: torch.Tensor, rep: str, axis: int = 0, **kwargs) -> torch
     R = roma.unitquat_to_rotmat(quat)         # [..., 3, 3]
 
     R = R.movedim(axis, 0)                    # [N, ..., 3, 3]
-    N = R.shape[0]
-    M = R.sum(dim=0) / N                      # [..., 3, 3]
-    R_mean = roma.special_procrustes(M)       # [..., 3, 3]
+    R_mean = roma.special_procrustes(R.mean(dim=0))       # [..., 3, 3]
 
     quat_mean = roma.rotmat_to_unitquat(R_mean)
     out = quat_to(quat_mean, rep, **kwargs)
@@ -168,8 +166,8 @@ def add_rotation(delta: torch.Tensor, anchor: torch.Tensor, rep: str, **kwargs) 
     q_delta = to_quat(delta, rep, **kwargs)   # [..., 4]
     q_anchor = to_quat(anchor, rep, **kwargs) # [..., 4]
 
-    # Compose rotations: q_out = q_delta ⊗ q_anchor
-    q_out = roma.quat_product(q_delta, q_anchor)
+    # Compose rotations: q_out = q_anchor ⊗ q_delta
+    q_out = roma.quat_product(q_anchor, q_delta)
 
     out = quat_to(q_out, rep, **kwargs)
 
