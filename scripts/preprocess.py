@@ -42,7 +42,7 @@ def preprocess(raw_dir: Path,
             - "quat"   : quaternions
             - "euler"  : Euler angles
             - "rot6"   : 6D rotation representation
-            - "rsot9"   : 9D rotation matrix flattened
+            - "rot9"   : 9D rotation matrix flattened
             Defaults to "expmap".
         downsample (int, optional): Factor by which to downsample the temporal frames. 
             Defaults to `DOWNSAMPLE_FACTOR`.

@@ -135,7 +135,15 @@ PROTOCOL = {
 }
 
 
-STATIC_JOINTS = (0, 17, 18, 23, 24)
+STATIC_JOINTS = [0, 17, 18, 23, 24]
+STATIC_PARENTS = [PARENTS[j] for j in STATIC_JOINTS]
+
+
+# Other formats such as raw H3.6M D3_Positions and expmap zip
+# have extra placeholder "Site" joints
+SITE_JOINTS = [5, 10, 15, 21, 23, 29, 31]
+SITE_PARENTS = [PARENTS[j] for j in SITE_JOINTS]
+TOTAL_JOINTS = NUM_JOINTS + len(SITE_JOINTS)
 
 
 KINEMATIC_CHAINS = [

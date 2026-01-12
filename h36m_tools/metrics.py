@@ -1,14 +1,37 @@
 import torch
 import logging 
-from torch.distributions import MultivariateNormal
-import math
 
 from h36m_tools.rotations import to_quat, quat_to
 from h36m_tools.kinematics import fk
-from h36m_tools.metadata import PARENTS, OFFSETS
+from h36m_tools.metadata import PARENTS, OFFSETS, STATIC_JOINTS, STATIC_PARENTS, SITE_JOINTS, SITE_PARENTS, NUM_JOINTS, TOTAL_JOINTS
+from h36m_tools.dims import add_dims
 
 
 logger = logging.getLogger(__name__)
+
+
+# https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
+NLL_IGNORED_JOINTS = {0, 4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31} 
+NLL_KEPT_JOINTS = [x for x in range(TOTAL_JOINTS) if x not in NLL_IGNORED_JOINTS]
+
+
+def _expand_dims(metric: torch.Tensor, axis: int) -> torch.Tensor:
+    """Expand dimensions of `metric` along `axis` by inserting static/site joints."""
+    if axis < 0:
+        axis = metric.ndim + axis
+    device = metric.device
+
+    def _fill_from_parents(out, dst, src):
+        dst = torch.tensor(dst, device=device, dtype=torch.long)
+        src = torch.tensor(src, device=device, dtype=torch.long)
+        out.index_copy_(axis, dst, out.index_select(axis, src))
+        return out
+
+    out = add_dims(metric, STATIC_JOINTS, NUM_JOINTS, axis=axis)
+    out = _fill_from_parents(out, STATIC_JOINTS, STATIC_PARENTS)
+    out = add_dims(out, SITE_JOINTS, TOTAL_JOINTS, axis=axis)
+    out = _fill_from_parents(out, SITE_JOINTS, SITE_PARENTS)
+    return out
 
 
 def mae_l2(y_pred: torch.Tensor,
@@ -39,9 +62,10 @@ def mae_l2(y_pred: torch.Tensor,
     euler_pred = quat_to(quat_pred, rep="euler", convention="ZYX")
     euler_gt = quat_to(quat_gt, rep="euler", convention="ZYX")
 
-    diff = torch.remainder(euler_gt - euler_pred + torch.pi, 2 * torch.pi) - torch.pi  # [..., J]
+    diff = torch.remainder(euler_gt - euler_pred + torch.pi, 2 * torch.pi) - torch.pi  # [..., J, D]
     if ignore_root:
         diff[..., 0, :] = 0.0  
+    diff = _expand_dims(diff, axis=-2) 
 
     error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
     reduce_dims = [i for i in range(error.dim()) if i != 1]
@@ -75,6 +99,9 @@ def mpjpe(y_pred: torch.Tensor,
     pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
 
     diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
+    if ignore_root:
+        diff[..., 0] = 0.0  
+    diff = _expand_dims(diff, axis=-1) 
 
     reduce_dims = [i for i in range(diff.dim()) if i != 1]
     error = diff.mean(dim=reduce_dims)  # [T]
@@ -137,6 +164,8 @@ def nll_kde(y_pred_gen: torch.Tensor,
         nll_list.append(-kde_ll)  # [B, T, J]
 
     nll_all = torch.cat(nll_list, dim=0)  # [N, T, J]
+    nll_all = _expand_dims(nll_all, axis=-1)[:, :, NLL_KEPT_JOINTS]  
+
     threshold = 20.0
     clamped = nll_all.clip(max=threshold)
     

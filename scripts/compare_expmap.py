@@ -6,13 +6,11 @@ import torch
 
 from h36m_tools.files import read_files
 from h36m_tools.dims import remove_dims
-from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
+from h36m_tools.metadata import STATIC_JOINTS, SITE_JOINTS, NUM_JOINTS, TOTAL_JOINTS, DOWNSAMPLE_FACTOR
 from h36m_tools.logging import setup_logger
 
 
 logger = logging.getLogger(__name__)
-
-SITE_JOINTS = (0, 6, 11, 16, 22, 24, 30, 32)
 
 
 def _compare_tensors(processed: torch.Tensor, reference: torch.Tensor, name: str = "", atol: float = 1e-4) -> bool:
@@ -85,10 +83,10 @@ def compare_expmap(ref_dir: Path,
                 logger.error(f"Failed to read reference tensor {ref_file}: {e}")
                 continue
 
-            ref_tensor = ref_tensor.reshape(ref_tensor.shape[0], -1, 3)
+            ref_tensor = ref_tensor.reshape(ref_tensor.shape[0], -1, 3)[:, 1:]
             if downsample > 1:
                 ref_tensor = ref_tensor[::downsample]
-            ref_tensor = remove_dims(ref_tensor, SITE_JOINTS, NUM_JOINTS + len(SITE_JOINTS), -2)
+            ref_tensor = remove_dims(ref_tensor, SITE_JOINTS, TOTAL_JOINTS, -2)
             ref_tensor = remove_dims(ref_tensor, STATIC_JOINTS, NUM_JOINTS, -2)
 
             if _compare_tensors(processed_tensor, -ref_tensor, name=f"{file} vs {ref_file}"):
