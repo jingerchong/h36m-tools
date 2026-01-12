@@ -10,22 +10,16 @@ from h36m_tools.dims import add_dims
 logger = logging.getLogger(__name__)
 
 
-# https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
-NLL_IGNORED_JOINTS = {0, 4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31} 
-NLL_KEPT_JOINTS = [x for x in range(TOTAL_JOINTS) if x not in NLL_IGNORED_JOINTS]
-
+def _fill_from(out, dst, src, device, axis):
+    dst = torch.tensor(dst, device=device, dtype=torch.long)
+    src = torch.tensor(src, device=device, dtype=torch.long)
+    out.index_copy_(axis, dst, out.index_select(axis, src))
+    return out
 
 def _expand_dims(metric: torch.Tensor, axis: int) -> torch.Tensor:
     """Expand dimensions of `metric` along `axis` by inserting static/site joints."""
-    if axis < 0:
-        axis = metric.ndim + axis
-    device = metric.device
+    
 
-    def _fill_from_parents(out, dst, src):
-        dst = torch.tensor(dst, device=device, dtype=torch.long)
-        src = torch.tensor(src, device=device, dtype=torch.long)
-        out.index_copy_(axis, dst, out.index_select(axis, src))
-        return out
 
     out = add_dims(metric, STATIC_JOINTS, NUM_JOINTS, axis=axis)
     out = _fill_from_parents(out, STATIC_JOINTS, STATIC_PARENTS)
@@ -65,7 +59,16 @@ def mae_l2(y_pred: torch.Tensor,
     diff = torch.remainder(euler_gt - euler_pred + torch.pi, 2 * torch.pi) - torch.pi  # [..., J, D]
     if ignore_root:
         diff[..., 0, :] = 0.0  
-    diff = _expand_dims(diff, axis=-2) 
+
+    # Expand to full joint set according to 
+    # Noting that rotation error of child = rotation error of parent
+    # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20H3.6M%20Deterministic%20Evaluation.ipynb
+    axis = diff.ndim - 2
+    device = diff.device
+    diff = add_dims(diff, STATIC_JOINTS, NUM_JOINTS, axis=axis)
+    diff = _fill_from(diff, STATIC_JOINTS, STATIC_PARENTS, device, axis)
+    diff = add_dims(diff, SITE_JOINTS, TOTAL_JOINTS, axis=axis)
+    diff = _fill_from(diff, SITE_JOINTS, SITE_PARENTS, device, axis)
 
     error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
     reduce_dims = [i for i in range(error.dim()) if i != 1]
@@ -101,7 +104,14 @@ def mpjpe(y_pred: torch.Tensor,
     diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
     if ignore_root:
         diff[..., 0] = 0.0  
-    diff = _expand_dims(diff, axis=-1) 
+
+    # Evaluation protocol as defined in
+    # https://github.com/dulucas/siMLPe/blob/main/exps/baseline_h36m/test.py
+    joint_to_ignore = [16, 20, 23, 24, 28, 31]
+    joint_equal = [13, 19, 22, 13, 27, 30]
+    diff = add_dims(diff, STATIC_JOINTS, NUM_JOINTS, axis=-1)
+    diff = add_dims(diff, SITE_JOINTS, TOTAL_JOINTS, axis=-1)
+    diff[..., joint_to_ignore] = diff[..., joint_equal]
 
     reduce_dims = [i for i in range(diff.dim()) if i != 1]
     error = diff.mean(dim=reduce_dims)  # [T]
@@ -164,7 +174,14 @@ def nll_kde(y_pred_gen: torch.Tensor,
         nll_list.append(-kde_ll)  # [B, T, J]
 
     nll_all = torch.cat(nll_list, dim=0)  # [N, T, J]
-    nll_all = _expand_dims(nll_all, axis=-1)[:, :, NLL_KEPT_JOINTS]  
+
+    # Ignoring certain joints according to
+    # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
+    ignored_joints = {0, 4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31} 
+    kept_joints = [x for x in range(TOTAL_JOINTS) if x not in ignored_joints]
+    nll_all = add_dims(nll_all, STATIC_JOINTS, NUM_JOINTS, axis=-1)
+    nll_all = add_dims(nll_all, SITE_JOINTS, TOTAL_JOINTS, axis=-1)
+    nll_all = nll_all[..., kept_joints]
 
     threshold = 20.0
     clamped = nll_all.clip(max=threshold)
