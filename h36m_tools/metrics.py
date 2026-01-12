@@ -37,7 +37,7 @@ def _expand_dims(metric: torch.Tensor, axis: int) -> torch.Tensor:
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
            rep: str = "quat",
-           ignore_root: bool = False,
+           ignore_root: bool = True,
            **kwargs) -> torch.Tensor:
     """
     Compute the mean angular L2 error between predicted and target rotations.

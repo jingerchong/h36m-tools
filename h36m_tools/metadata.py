@@ -45,9 +45,9 @@ OFFSETS = torch.tensor([
 ], dtype=torch.float32, device=DATA_DEVICE)
 
 
-# Parent indices for each joint, -1 indicates no parent
+# Parent indices for each joint
 PARENTS = [
-    -1,     # 0  Hips
+     0,     # 0  Hips (technically -1, no parent)
      0,     # 1  RightUpLeg
      1,     # 2  RightLeg
      2,     # 3  RightFoot
@@ -142,7 +142,7 @@ STATIC_PARENTS = [PARENTS[j] for j in STATIC_JOINTS]
 # Other formats such as raw H3.6M D3_Positions and expmap zip
 # have extra placeholder "Site" joints
 SITE_JOINTS = [5, 10, 15, 21, 23, 29, 31]
-SITE_PARENTS = [PARENTS[j] for j in SITE_JOINTS]
+SITE_PARENTS = [j-1 for j in SITE_JOINTS]
 TOTAL_JOINTS = NUM_JOINTS + len(SITE_JOINTS)
 
 
