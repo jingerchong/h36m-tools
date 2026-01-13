@@ -52,15 +52,16 @@ def mae_l2(y_pred: torch.Tensor,
     # Expand to full joint set according to 
     # Noting that rotation error of child = rotation error of parent
     # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20H3.6M%20Deterministic%20Evaluation.ipynb
-    axis = diff.ndim - 2
+    joint_dim = diff.ndim - 2
     device = diff.device
-    diff = add_dims(diff, STATIC_JOINTS, NUM_JOINTS, axis=axis)
-    diff = _fill_from(diff, STATIC_JOINTS, STATIC_PARENTS, device, axis)
-    diff = add_dims(diff, SITE_JOINTS, TOTAL_JOINTS, axis=axis)
-    diff = _fill_from(diff, SITE_JOINTS, SITE_PARENTS, device, axis)
+    diff = add_dims(diff, STATIC_JOINTS, NUM_JOINTS, axis=joint_dim)
+    diff = _fill_from(diff, STATIC_JOINTS, STATIC_PARENTS, device, joint_dim)
+    diff = add_dims(diff, SITE_JOINTS, TOTAL_JOINTS, axis=joint_dim)
+    diff = _fill_from(diff, SITE_JOINTS, SITE_PARENTS, device, joint_dim)
 
+    time_dim = diff.ndim - 3
     error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
-    reduce_dims = [i for i in range(error.dim()) if i != 1]
+    reduce_dims = [i for i in range(error.dim()) if i != time_dim]
     error = error.mean(dim=reduce_dims)  # [T]
     
     logger.debug(f"MAE L2 result shape: {error.shape}")
