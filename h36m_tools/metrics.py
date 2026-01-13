@@ -16,17 +16,6 @@ def _fill_from(out, dst, src, device, axis):
     out.index_copy_(axis, dst, out.index_select(axis, src))
     return out
 
-def _expand_dims(metric: torch.Tensor, axis: int) -> torch.Tensor:
-    """Expand dimensions of `metric` along `axis` by inserting static/site joints."""
-    
-
-
-    out = add_dims(metric, STATIC_JOINTS, NUM_JOINTS, axis=axis)
-    out = _fill_from_parents(out, STATIC_JOINTS, STATIC_PARENTS)
-    out = add_dims(out, SITE_JOINTS, TOTAL_JOINTS, axis=axis)
-    out = _fill_from_parents(out, SITE_JOINTS, SITE_PARENTS)
-    return out
-
 
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
