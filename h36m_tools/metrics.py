@@ -16,18 +16,6 @@ def _fill_from(out, dst, src, device, axis):
     out.index_copy_(axis, dst, out.index_select(axis, src))
     return out
 
-def _expand_dims(metric: torch.Tensor, axis: int) -> torch.Tensor:
-    """Expand dimensions of `metric` along `axis` by inserting static/site joints."""
-    
-
-
-    out = add_dims(metric, STATIC_JOINTS, NUM_JOINTS, axis=axis)
-    out = _fill_from_parents(out, STATIC_JOINTS, STATIC_PARENTS)
-    out = add_dims(out, SITE_JOINTS, TOTAL_JOINTS, axis=axis)
-    out = _fill_from_parents(out, SITE_JOINTS, SITE_PARENTS)
-    return out
-
-
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
            rep: str = "quat",
@@ -178,7 +166,8 @@ def nll_kde(y_pred_gen: torch.Tensor,
 
     # Ignoring certain joints according to
     # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
-    ignored_joints = {0, 4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31} 
+    # Changed 16 to 15, assumed typo since 16 left shoulder is not static but 15 site is
+    ignored_joints = {0, 4, 5, 9, 10, 11, 15, 20, 21, 22, 23, 24, 28, 29, 30, 31} 
     kept_joints = [x for x in range(TOTAL_JOINTS) if x not in ignored_joints]
     nll_all = add_dims(nll_all, STATIC_JOINTS, NUM_JOINTS, axis=-1)
     nll_all = add_dims(nll_all, SITE_JOINTS, TOTAL_JOINTS, axis=-1)
