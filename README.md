@@ -67,7 +67,7 @@ data/raw/
 Generate a preprocessed dataset for a specific SO(3) representation:
 
 ```bash
-python -m scripts.preprocess -r "expmap" -i "data/raw" -o "data/processed"
+python -m scripts.preprocess -r "expmap" -i "data/raw" -o "data/protocol1"
 ```
 
 This will:
@@ -84,7 +84,7 @@ This will:
 If you have access to the original expmap zip file, you can verify that our preprocessing script generates equivalent outputs:
 
 ```bash
-python -m scripts.compare_expmap -r "data/expmap_zip" -p "data/processed"
+python -m scripts.compare_expmap -r "data/expmap_zip" -p "data/protocol1"
 ```
 This compares all non-static dimensions for equivalent sequences (same action and subject). Note that in some cases, the sequence order may differ (e.g., "S1 Eating 1" in our processed dataset might correspond to "S1 Eating 2" in the original zip).
 
@@ -94,12 +94,12 @@ The repository provides tools to visualize skeleton sequences in multiple format
 
 Plot a series of frames:
 ```bash
-python -m scripts.plot_sequence -i "data/processed/expmap/train/S1_walking_1.pt" -s 100 
+python -m scripts.plot_sequence -i "data/protocol1/expmap/train/S1_walking_1.pt" -s 100 
 ```
 
 Create MP4 animations of entire sequences:
 ```bash
-python -m scripts.animate_sequence -i "data/processed/quat/train/S1_walking_1.pt" 
+python -m scripts.animate_sequence -i "data/protocol1/quat/train/S1_walking_1.pt" 
 ```
 **Note:** This script infers the representation from the parent directory of the data.
 
@@ -107,7 +107,7 @@ python -m scripts.animate_sequence -i "data/processed/quat/train/S1_walking_1.pt
 
 Quickly inspect raw or processed files to view tensor properties and sample frames:
 ```bash
-python -m scripts.inspect_files -i "data/expmap_zip/S1/directions_1.txt" "data/processed/expmap/train/S1_directions_1.pt"
+python -m scripts.inspect_files -i "data/expmap_zip/S1/directions_1.txt" "data/protocol1/expmap/train/S1_directions_1.pt"
 ```
 
 **Supported formats:** `.cdf` (raw H3.6M), `.pt` (processed tensors), `.txt` (expmap zip format)
@@ -127,7 +127,7 @@ Load processed H3.6M data for training or evaluation:
 ```python
 from h36m_tools.load import load_processed
 
-train, test, mean, std = load_processed("h36m-tools/data/processed", rep="quat", include_stats=True)
+train, test, mean, std = load_processed("h36m-tools/data/protocol1", rep="quat", include_stats=True)
 ```
 
 Compute standard human motion prediction metrics:

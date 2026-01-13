@@ -129,9 +129,13 @@ RIGHT_LEFT_JOINTS_IDX = [
 
 
 # Train/test split of subjects 
-PROTOCOL = {
+PROTOCOL_1 = {
     "train": ["S1", "S5", "S6", "S7", "S8"],
     "test": ["S9", "S11"]
+}
+PROTOCOL_2 = {
+    "train": ["S1", "S6", "S7", "S8", "S9", "S11"],
+    "test": ["S5"]
 }
 
 

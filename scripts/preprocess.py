@@ -5,7 +5,7 @@ import shutil
 
 from h36m_tools.rotations import to_quat, quat_to
 from h36m_tools.files import save_object
-from h36m_tools.metadata import PROTOCOL, STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
+from h36m_tools.metadata import PROTOCOL_1, PROTOCOL_2, STATIC_JOINTS, NUM_JOINTS, DOWNSAMPLE_FACTOR
 from h36m_tools.load import load_raw
 from h36m_tools.normalize import compute_stats
 from h36m_tools.dims import remove_dims
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 def preprocess(raw_dir: Path, 
                rep_dir: Path, 
                rep: str = "expmap",
+               protocol: int = 1,
                downsample: int = DOWNSAMPLE_FACTOR, 
                **rep_kwargs):
     """
@@ -44,6 +45,7 @@ def preprocess(raw_dir: Path,
             - "rot6"   : 6D rotation representation
             - "rot9"   : 9D rotation matrix flattened
             Defaults to "expmap".
+        protocol (int, optional): Train/test split of subjects, options in metadata.py
         downsample (int, optional): Factor by which to downsample the temporal frames. 
             Defaults to `DOWNSAMPLE_FACTOR`.
         **rep_kwargs: Extra keyword arguments passed to `quat_to` for Euler angles:
@@ -58,11 +60,18 @@ def preprocess(raw_dir: Path,
     logger.info(f"Loading raw data from {raw_dir}...")
     data = load_raw(raw_dir, downsample=downsample) 
     rep_dir.mkdir(parents=True, exist_ok=True)
-
+    
+    if protocol == 1:
+        p = PROTOCOL_1
+    elif protocol == 2:
+        p = PROTOCOL_2
+    else: 
+        raise ValueError(f"Unknown protocol number: {protocol}")
+    
     train_tensors = []
 
     for subject, actions in data.items():
-        split = "train" if subject in PROTOCOL["train"] else "test"
+        split = "train" if subject in p["train"] else "test"
         split_dir = rep_dir / split
         split_dir.mkdir(parents=True, exist_ok=True)
 
@@ -76,7 +85,7 @@ def preprocess(raw_dir: Path,
                 filename = f"{subject}_{action}_{idx+1}.pt"
                 save_object(split_dir / filename, data_rep)
 
-                if subject in PROTOCOL["train"]:
+                if subject in p["train"]:
                     train_tensors.append(data_rep)
 
     logger.info("Computing normalization statistics...")
@@ -91,8 +100,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="H3.6M preprocessing script")
     parser.add_argument("-i", "--input", type=Path, default=Path("data/raw"), help="Raw H3.6M data directory")
-    parser.add_argument("-o", "--output", type=Path, default=Path("data/processed"), help="Processed data directory")
+    parser.add_argument("-o", "--output", type=Path, default=Path("data/protocol1"), help="Processed data directory")
     parser.add_argument("-r", "--rep", type=str, default="expmap", help="Target rotation representation")
+    parser.add_argument("-p", "--protocol", type=int, default=1, help="Protocol number for train/test split")
     parser.add_argument("-d", "--downsample", type=int, default=DOWNSAMPLE_FACTOR, help="Downsample factor")
     parser.add_argument("--convention", type=str, default="ZXY", help="Target Euler angle convention")
     parser.add_argument("--degrees", action="store_true", help="If set, target Euler angles returned as degrees")
@@ -106,5 +116,5 @@ if __name__ == "__main__":
     
     setup_logger(rep_dir, debug=args.debug)
 
-    preprocess(args.input, rep_dir, rep=args.rep, downsample=args.downsample,
+    preprocess(args.input, rep_dir, rep=args.rep, protocol=args.protocol, downsample=args.downsample,
                convention=args.convention, degrees=args.degrees)
