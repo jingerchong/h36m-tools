@@ -16,6 +16,7 @@ def _fill_from(out, dst, src, device, axis):
     out.index_copy_(axis, dst, out.index_select(axis, src))
     return out
 
+
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
            rep: str = "quat",
