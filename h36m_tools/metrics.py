@@ -78,12 +78,13 @@ def mae_l2(y_pred: torch.Tensor,
     return error
 
 
-def mpjpe(y_pred: torch.Tensor,
+def simlpe_mpjpe(y_pred: torch.Tensor,
           y_gt: torch.Tensor,
           rep: str = "quat",
           ignore_root: bool = False,
           **kwargs) -> torch.Tensor:
     """
+    Based on siMLPe https://arxiv.org/abs/2207.01567
     Compute Mean Per-Joint Position Error (MPJPE) between predicted and ground-truth poses.
     Converts inputs to 3D joint positions using differentiable FK.
 
