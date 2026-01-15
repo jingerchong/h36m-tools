@@ -52,29 +52,23 @@ def mae_l2(y_pred: torch.Tensor,
     return error
 
 
-def _to_pos(y_pred: torch.Tensor,
+def to_pos(y_pred: torch.Tensor,
             y_gt: torch.Tensor,
             rep: str = "quat", 
             ignore_root: bool = False,
-            meters: bool = False,
             **kwargs):
     if rep == "pos":
         pos_pred, pos_gt = y_pred, y_gt
     else:
         pos_pred = fk(y_pred, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
         pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
-    if meters:
-        pos_pred = pos_pred / 1000.0
-        pos_gt   = pos_gt / 1000.0
+    # Return in m instead of mm since most metrics use m
+    pos_pred = pos_pred / 1000.0
+    pos_gt   = pos_gt / 1000.0
     return pos_pred, pos_gt
 
 
-def mpjpe(y_pred: torch.Tensor,
-          y_gt: torch.Tensor,
-          rep: str = "quat",
-          ignore_root: bool = False,
-          return_pos: bool = False,
-          **kwargs) -> torch.Tensor:
+def mpjpe(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> torch.Tensor:
     """
     Compute Mean Per-Joint Position Error (MPJPE) between predicted and ground-truth poses.
     Converts inputs to 3D joint positions using differentiable FK.
@@ -90,10 +84,7 @@ def mpjpe(y_pred: torch.Tensor,
     Returns:
         Tensor of shape [..., T], mean per joint position error per time step.
     """
-    pos_pred, pos_gt = _to_pos(y_pred, y_gt, rep, ignore_root, **kwargs)
     diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
-    if ignore_root:
-        diff[..., 0] = 0.0  
 
     # Evaluation protocol as defined in
     # https://github.com/dulucas/siMLPe/blob/main/exps/baseline_h36m/test.py
@@ -103,10 +94,10 @@ def mpjpe(y_pred: torch.Tensor,
     diff[..., joint_to_ignore] = diff[..., joint_equal]
 
     reduce_dims = [i for i in range(diff.dim()) if i != 1]
-    error = diff.mean(dim=reduce_dims)  # [T]
+    error = diff.mean(dim=reduce_dims)*1000.0  # [T], expresesd in mm
 
     logger.debug(f"MPJPE result shape: {error.shape}")
-    return error, pos_pred, pos_gt if return_pos else error
+    return error
 
 
 # Ignoring certain joints in generative eval according to
@@ -138,7 +129,7 @@ def nll_kde(y_pred_gen: torch.Tensor,
     for y_pred_batch, y_gt_batch in zip(y_pred_gen, y_gt_gen):
         device = y_gt_batch.device
 
-        pos_pred, pos_gt = _to_pos(y_pred_batch, y_gt_batch, rep, ignore_root, meters=True, **kwargs)  # [n_samples, B, T, J, D], [B, T, J, D]
+        pos_pred, pos_gt = to_pos(y_pred_batch, y_gt_batch, rep, ignore_root, **kwargs)  # [n_samples, B, T, J, D], [B, T, J, D]
         n_samples, B, T, J, D = pos_pred.shape
 
         # Compute mean and covariance
@@ -179,40 +170,84 @@ def nll_kde(y_pred_gen: torch.Tensor,
     return error
 
 
+def apd(pos_pred: torch.Tensor) -> float:
+    """
+    Compute the Average Pairwise Distance (APD) between multiple predicted sequences.
 
-# def compute_diversity(pred, *args):
-#     if pred.shape[0] == 1:
-#         return 0.0
-#     dist = pdist(pred.reshape(pred.shape[0], -1))
-#     diversity = dist.mean().item()
-#     return diversity
+    Args:
+        pos_pred: Tensor of shape [n_samples, B, T, J, D] representing predicted trajectories.
+
+    Returns:
+        float: Mean APD across batch, averaged over samples per batch element.
+    """
+    n_samples, B = pos_pred.shape[0], pos_pred.shape[1]
+    if n_samples == 1:
+        logger.debug("Only one sample, APD = 0")
+        return 0.0
+    
+    pos_pred = pos_pred.transpose(0, 1)  # [B, n_samples, T, J, D]
+    pred_flat = pos_pred.flatten(start_dim=-2)  # [B, n_samples, J*D]
+    
+    # Compute pairwise differences and distances
+    diff = pred_flat[:, :, None, :] - pred_flat[:, None, :, :]  # [B, n_samples, n_samples, J*D]
+    pairwise_dist = diff.norm(dim=-1)  # [B, n_samples, n_samples]
+    
+    # Extract upper triangle for each batch element
+    mask = torch.triu(torch.ones(n_samples, n_samples, device=pos_pred.device, dtype=torch.bool), diagonal=1)
+    mask = mask.unsqueeze(0).expand(B, -1, -1)  # [B, n_samples, n_samples]
+    
+    # Extract masked values and compute mean per batch
+    num_pairs = n_samples * (n_samples - 1) // 2
+    apd_per_batch = pairwise_dist[mask].reshape(B, num_pairs).mean(dim=-1)
+    apd_val = apd_per_batch.mean().item()
+    
+    logger.debug(f"compute_apd: n_samples={n_samples}, B={B}, apd={apd_val:.6f}")
+    return apd_val
 
 
-# def compute_ade(pred, gt, *args):
-#     diff = pred - gt
-#     dist = np.linalg.norm(diff, axis=2).mean(axis=1)
-#     return dist.min()
+def ade(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
+    """
+    Compute Average Displacement Error (ADE) between predicted and ground-truth trajectories.
+
+    Args:
+        pos_pred: Tensor of shape [n_samples, B, T, J, D] predicted trajectories.
+        pos_gt: Tensor of shape [B, T, J, D] ground-truth trajectories.
+
+    Returns:
+        float: Minimum ADE over all predicted samples (best-of-K) averaged over batch.
+    """
+    pos_pred_flat = pos_pred.flatten(start_dim=-2)  # [n_samples, B, T, J*D]
+    pos_gt_flat = pos_gt.flatten(start_dim=-2)      # [B, T, J*D]
+
+    diff = pos_pred_flat - pos_gt_flat              # [n_samples, B, T, J*D]
+    dist = diff.norm(dim=-1)                        # [n_samples, B, T]
+    # Mean over time dimension
+    ade_per_sample = dist.mean(dim=-1)               # [n_samples, B]
+    # Take min over samples, then average over batch
+    ade_min = ade_per_sample.min(dim=0).values.mean().item()
+
+    logger.debug(f"compute_ade: n_samples={pos_pred.shape[0]}, ade_min={ade_min:.6f}")
+    return ade_min
 
 
-# def compute_fde(pred, gt, *args):
-#     diff = pred - gt
-#     dist = np.linalg.norm(diff, axis=2)[:, -1]
-#     return dist.min()
+def fde(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
+    """
+    Compute Final Displacement Error (FDE) between predicted and ground-truth trajectories.
 
+    Args:
+        pos_pred: Tensor of shape [n_samples, B, T, J, D] predicted trajectories.
+        pos_gt: Tensor of shape [B, T, J, D] ground-truth trajectories.
 
-# def compute_mmade(pred, gt, gt_multi):
-#     gt_dist = []
-#     for gt_multi_i in gt_multi:
-#         dist = compute_ade(pred, gt_multi_i)
-#         gt_dist.append(dist)
-#     gt_dist = np.array(gt_dist).mean()
-#     return gt_dist
+    Returns:
+        float: Minimum FDE over all predicted samples at the final timestep, averaged over batch.
+    """
+    pos_pred_flat = pos_pred.flatten(start_dim=-2)  # [n_samples, B, T, J*D]
+    pos_gt_flat = pos_gt.flatten(start_dim=-2)      # [B, T, J*D]
 
+    diff = pos_pred_flat[:, :, -1, :] - pos_gt_flat[:, -1, :]  # [n_samples, B, J*D]
+    dist = diff.norm(dim=-1)                                   # [n_samples, B]
+    # Take min over samples, then average over batch
+    fde_min = dist.min(dim=0).values.mean().item()
 
-# def compute_mmfde(pred, gt, gt_multi):
-#     gt_dist = []
-#     for gt_multi_i in gt_multi:
-#         dist = compute_fde(pred, gt_multi_i)
-#         gt_dist.append(dist)
-#     gt_dist = np.array(gt_dist).mean()
-#     return gt_dist
+    logger.debug(f"compute_fde: n_samples={pos_pred.shape[0]}, fde_min={fde_min:.6f}")
+    return fde_min
