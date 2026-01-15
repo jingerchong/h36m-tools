@@ -52,11 +52,6 @@ def plot_sequence(input_file: Path,
     rep, convention, degrees = parse_rep_dir(rep_dir)
     logger.info(f"Parsed representation: rep={rep}, convention='{convention}', degrees={degrees}")
 
-    fill = identity_rotation(rep, (rot.shape[0], len(STATIC_JOINTS)), convention=convention, degrees=degrees)
-    rot = add_dims(rot, STATIC_JOINTS, NUM_JOINTS, fill, -2)
-    fill = identity_rotation(rep, (rot.shape[0], len(SITE_JOINTS)), convention=convention, degrees=degrees)
-    rot = add_dims(rot, SITE_JOINTS, TOTAL_JOINTS, fill, -2)
-
     default_name = f"{rep_dir}_{input_file.stem}_f{start_frame}"
     fig = plot_frames(rot, rep, title=default_name, show_joint_names=show_joint_names,
                       convention=convention, degrees=degrees)

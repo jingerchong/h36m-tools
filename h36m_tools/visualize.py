@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 from matplotlib.text import Text
 
 from h36m_tools.metadata import JOINT_NAMES, RIGHT_LEFT_JOINTS_IDX, PARENTS, DOWNSAMPLE_FACTOR, RAW_FPS
-from h36m_tools.kinematics import fk
+from h36m_tools.kinematics import fill_static_and_site_joints, fk
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ def _get_right_joints(right_left_joints_idx: List[Tuple[int, int]] = RIGHT_LEFT_
 def _to_numpy_pos(data: RotData, rep: str, **kwargs: Any) -> np.ndarray:
     """Convert rot/pos -> numpy positions [T, J, 3]."""
     data_t = torch.as_tensor(data, dtype=torch.float32)
+    data_t = fill_static_and_site_joints(data_t, rep, **kwargs)
     pos = fk(data_t, rep=rep, **kwargs)
     arr = pos.detach().cpu().numpy()
     arr[..., [1, 2]] = arr[..., [2, 1]]
