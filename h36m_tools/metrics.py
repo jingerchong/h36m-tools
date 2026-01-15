@@ -55,12 +55,17 @@ def mae_l2(y_pred: torch.Tensor,
 def _to_pos(y_pred: torch.Tensor,
             y_gt: torch.Tensor,
             rep: str = "quat", 
+            ignore_root: bool = False,
+            meters: bool = False,
             **kwargs):
     if rep == "pos":
         pos_pred, pos_gt = y_pred, y_gt
     else:
         pos_pred = fk(y_pred, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
         pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
+    if meters:
+        pos_pred = pos_pred / 1000.0
+        pos_gt   = pos_gt / 1000.0
     return pos_pred, pos_gt
 
 
@@ -85,7 +90,7 @@ def mpjpe(y_pred: torch.Tensor,
     Returns:
         Tensor of shape [..., T], mean per joint position error per time step.
     """
-    pos_pred, pos_gt = _to_pos(y_pred, y_gt, rep, **kwargs)
+    pos_pred, pos_gt = _to_pos(y_pred, y_gt, rep, ignore_root, **kwargs)
     diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
     if ignore_root:
         diff[..., 0] = 0.0  
@@ -133,9 +138,7 @@ def nll_kde(y_pred_gen: torch.Tensor,
     for y_pred_batch, y_gt_batch in zip(y_pred_gen, y_gt_gen):
         device = y_gt_batch.device
 
-        # Compute joint positions
-        pos_gt = fk(y_gt_batch, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs) / 1000.0  # [B, T, J, D]
-        pos_pred = fk(y_pred_batch, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs) / 1000.0  # [n_samples, B, T, J, D]
+        pos_pred, pos_gt = _to_pos(y_pred_batch, y_gt_batch, rep, ignore_root, meters=True, **kwargs)  # [n_samples, B, T, J, D], [B, T, J, D]
         n_samples, B, T, J, D = pos_pred.shape
 
         # Compute mean and covariance
