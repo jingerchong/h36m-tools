@@ -194,3 +194,12 @@ def mean_rotation(rot: torch.Tensor, rep: str, axis: int = 0, **kwargs) -> torch
 
     logger.debug(f"mean_rotation('{rep}'): input {rot.shape} -> output {out.shape}")
     return out
+
+
+def get_rep_dim(rep: str) -> int:
+    """Return the dimension of a rotation representation."""
+    dims = {"quat": 4, "expmap": 3, "euler": 3, "rot6": 6, "rot9": 9}
+    try:
+        return dims[rep]
+    except KeyError:
+        raise ValueError(f"Unknown rotation representation: '{rep}'")
