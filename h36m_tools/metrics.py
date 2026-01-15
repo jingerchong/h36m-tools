@@ -102,14 +102,6 @@ def mpjpe(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> torch.Tensor:
         Tensor of shape [..., T], mean per joint position error per time step.
     """
     diff = (pos_gt - pos_pred).norm(dim=-1)*1000.0  # [..., J]
-
-    # Evaluation protocol as defined in
-    # https://github.com/dulucas/siMLPe/blob/main/exps/baseline_h36m/test.py
-    # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20H3.6M%20Evaluation%20Comparison%20HistRepItself.ipynb
-    joint_to_ignore = [16, 20, 23, 24, 28, 31]
-    joint_equal = [13, 19, 22, 13, 27, 30]
-    diff[..., joint_to_ignore] = diff[..., joint_equal]
-
     error = diff.mean(dim=(-1, -3))  # [T] or [n_samples, T], expresesd in mm
 
     logger.debug(
