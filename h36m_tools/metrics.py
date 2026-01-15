@@ -44,7 +44,11 @@ def mae_l2(y_pred: torch.Tensor,
     error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
     error = error.mean(dim=-2)  # [T] or [n_samples, T]
     
-    logger.debug(f"MAE L2 result shape: {error.shape}")
+    logger.debug(
+        f"mae_l2: y_pred {y_pred.shape}, y_gt {y_gt.shape}, rep={rep}, ignore_root={ignore_root} -> "
+        f"euler_diff stats: mean={diff.mean().item():.4f}, max={diff.abs().max().item():.4f}, "
+        f"error shape={error.shape}"
+    )
     return error
 
 
@@ -78,7 +82,6 @@ def to_pos(y_pred: torch.Tensor,
     pos_pred = pos_pred / 1000.0
     if pos_gt is not None:
         pos_gt = pos_gt / 1000.0
-
     return pos_pred, pos_gt
 
 
@@ -98,7 +101,7 @@ def mpjpe(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> torch.Tensor:
     Returns:
         Tensor of shape [..., T], mean per joint position error per time step.
     """
-    diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
+    diff = (pos_gt - pos_pred).norm(dim=-1)*1000.0  # [..., J]
 
     # Evaluation protocol as defined in
     # https://github.com/dulucas/siMLPe/blob/main/exps/baseline_h36m/test.py
@@ -107,9 +110,12 @@ def mpjpe(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> torch.Tensor:
     joint_equal = [13, 19, 22, 13, 27, 30]
     diff[..., joint_to_ignore] = diff[..., joint_equal]
 
-    error = diff.mean(dim=(-1, -3))*1000.0  # [T] or [n_samples, T], expresesd in mm
+    error = diff.mean(dim=(-1, -3))  # [T] or [n_samples, T], expresesd in mm
 
-    logger.debug(f"MPJPE result shape: {error.shape}")
+    logger.debug(
+        f"mpjpe: pos_pred {pos_pred.shape}, pos_gt {pos_gt.shape} -> "
+        f"diff shape={diff.shape}, per-joint error stats: min={diff.min().item():.4f}, max={diff.max().item():.4f}, mean={diff.mean().item():.4f}"
+    )
     return error
 
 
@@ -139,7 +145,7 @@ def nll_kde(y_pred_gen: torch.Tensor,
     """
     nll_list = []
 
-    for y_pred_batch, y_gt_batch in zip(y_pred_gen, y_gt_gen):
+    for i, (y_pred_batch, y_gt_batch) in enumerate(zip(y_pred_gen, y_gt_gen)):
         device = y_gt_batch.device
 
         pos_pred, pos_gt = to_pos(y_pred_batch, y_gt_batch, rep, ignore_root, **kwargs)  # [n_samples, B, T, J, D], [B, T, J, D]
@@ -170,16 +176,22 @@ def nll_kde(y_pred_gen: torch.Tensor,
         kde_ll = torch.logsumexp(log_k, dim=0) - torch.log(torch.tensor(float(n_samples), device=device))
         nll_list.append(-kde_ll)  # [B, T, J]
 
+        logger.debug(
+            f"nll_kde batch={i}: pos_pred {pos_pred.shape}, pos_gt {pos_gt.shape} -> "
+            f"kde_ll shape={kde_ll.shape}, raw NLL stats: min={(-kde_ll).min().item():.4f}, max={(-kde_ll).max().item():.4f}, mean={(-kde_ll).mean().item():.4f}"
+        )
+
     nll_all = torch.cat(nll_list, dim=0)  # [N, T, J]
     nll_all = nll_all[..., KEPT_JOINTS]
 
     threshold = 20.0
-    clamped = nll_all.clip(max=threshold)
-    
-    logger.warning(f"{(nll_all > threshold).sum().item()}/{nll_all.numel()} elements of NLL were clamped to {threshold}")
+    clamped = nll_all.clip(max=threshold)    
     error = clamped.sum(dim=2).mean(dim=0)  # [T]
 
-    logger.debug(f"NLL-KDE result shape: {error.shape}")
+    logger.debug(
+        f"nll_kde final: clamped > threshold {(nll_all > threshold).sum().item()} / {nll_all.numel()} elements -> "
+        f"clamped shape={clamped.shape}"
+    )
     return error
 
 
@@ -193,6 +205,11 @@ def _upsample_trajectory(y_down: torch.Tensor, factor: int = DOWNSAMPLE_FACTOR) 
     y_flat = y_perm.reshape(n_samples * B, J * D, T_down)
     y_up_flat = torch.nn.functional.interpolate(y_flat, size=T_full, mode='linear', align_corners=True)
     y_upsampled = y_up_flat.reshape(n_samples, B, J, D, T_full).permute(0, 1, 4, 2, 3)
+
+    logger.debug(
+        f"_upsample_trajectory: input {y_down.shape}, factor={factor} -> output {y_upsampled.shape}, "
+        f"first frame sample {y_upsampled[0,0,0,0,:5]}, last frame sample {y_upsampled[0,0,-1,0,:5]}"
+    )
     return y_upsampled
 
 
@@ -211,11 +228,19 @@ def apd(pos_pred: torch.Tensor) -> float:
         return 0.0
     
     pos_pred = _upsample_trajectory(pos_pred[..., KEPT_JOINTS, :])
+
     apd_total = 0.0
     for b in range(B):
         traj_flat = pos_pred[:, b].reshape(n_samples, -1)  # [S, F]
         dist = torch.pdist(traj_flat)  # [S*(S-1)/2]
         apd_total += dist.mean()
+
+        logger.debug(
+            f"compute_apd: batch {b}, traj_flat shape={traj_flat.shape} -> "
+            f"pairwise distance stats: min={dist.min().item():.6f}, "
+            f"max={dist.max().item():.6f}, mean={dist.mean().item():.6f}"
+        )
+        
     return (apd_total / B).item()
 
 
@@ -242,7 +267,10 @@ def ade(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
     # Take min over samples, then average over batch
     ade_min = ade_per_sample.min(dim=0).values.mean().item()
 
-    logger.debug(f"compute_ade: n_samples={pos_pred.shape[0]}, ade_min={ade_min:.6f}")
+    logger.debug(
+        f"compute_ade: pos_pred {pos_pred.shape}, pos_gt {pos_gt.shape} -> "
+        f"diff shape={diff.shape}, per-sample ADE range min={ade_per_sample.min().item():.6f}, max={ade_per_sample.max().item():.6f}"
+    )
     return ade_min
 
 
@@ -267,5 +295,8 @@ def fde(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
     # Take min over samples, then average over batch
     fde_min = dist.min(dim=0).values.mean().item()
 
-    logger.debug(f"compute_fde: n_samples={pos_pred.shape[0]}, fde_min={fde_min:.6f}")
+    logger.debug(
+        f"compute_fde: pos_pred {pos_pred.shape}, pos_gt {pos_gt.shape} -> "
+        f"diff shape={diff.shape}, per-sample FDE range min={dist.min().item():.6f}, max={dist.max().item():.6f}"
+    )
     return fde_min
