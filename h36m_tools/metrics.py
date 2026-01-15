@@ -183,7 +183,7 @@ def nll_kde(y_pred_gen: torch.Tensor,
     return error
 
 
-def apd(pos_pred: torch.Tensor) -> float:
+def apd(y_pos_pred: torch.Tensor) -> float:
     """
     Compute the Average Pairwise Distance (APD) between multiple predicted sequences.
 
@@ -193,29 +193,16 @@ def apd(pos_pred: torch.Tensor) -> float:
     Returns:
         float: Mean APD across batch, averaged over samples per batch element.
     """
-    n_samples, B = pos_pred.shape[0], pos_pred.shape[1]
+    n_samples, B = y_pos_pred.shape[0], y_pos_pred.shape[1]
     if n_samples == 1:
-        logger.debug("Only one sample, APD = 0")
         return 0.0
-    
-    pos_pred = pos_pred.transpose(0, 1)  # [B, n_samples, T, J, D]
-    pred_flat = pos_pred.flatten(start_dim=-2)  # [B, n_samples, J*D]
-    
-    # Compute pairwise differences and distances
-    diff = pred_flat[:, :, None, :] - pred_flat[:, None, :, :]  # [B, n_samples, n_samples, J*D]
-    pairwise_dist = diff.norm(dim=-1)  # [B, n_samples, n_samples]
-    
-    # Extract upper triangle for each batch element
-    mask = torch.triu(torch.ones(n_samples, n_samples, device=pos_pred.device, dtype=torch.bool), diagonal=1)
-    mask = mask.unsqueeze(0).expand(B, -1, -1)  # [B, n_samples, n_samples]
-    
-    # Extract masked values and compute mean per batch
-    num_pairs = n_samples * (n_samples - 1) // 2
-    apd_per_batch = pairwise_dist[mask].reshape(B, num_pairs).mean(dim=-1)
-    apd_val = apd_per_batch.mean().item()
-    
-    logger.debug(f"compute_apd: n_samples={n_samples}, B={B}, apd={apd_val:.6f}")
-    return apd_val
+
+    apd_total = 0.0
+    for b in range(B):
+        traj_flat = y_pos_pred[:, b].reshape(n_samples, -1)  # [S, F]
+        dist = torch.pdist(traj_flat)  # [S*(S-1)/2]
+        apd_total += dist.mean()
+    return (apd_total / B).item()
 
 
 def ade(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
