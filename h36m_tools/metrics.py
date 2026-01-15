@@ -3,8 +3,7 @@ import logging
 
 from h36m_tools.rotations import to_quat, quat_to
 from h36m_tools.kinematics import fk
-from h36m_tools.metadata import PARENTS, OFFSETS, STATIC_JOINTS, STATIC_PARENTS, SITE_JOINTS, SITE_PARENTS, NUM_JOINTS, TOTAL_JOINTS
-from h36m_tools.dims import add_dims
+from h36m_tools.metadata import PARENTS, OFFSETS, TOTAL_JOINTS
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,6 @@ def mae_l2(y_pred: torch.Tensor,
         y_gt: Ground-truth rotations, shape [..., J, D].
         rep: Representation of input rotations ("quat", "euler", "expmap", "rot6", "rot9").
         ignore_root: If True, exclude the root joint from error computation.
-        time_dim: Axis corresponding to the time dimension.
         **kwargs: Forwarded to conversion functions for additional options (e.g., convention, degrees).
 
     Returns:
@@ -43,28 +41,44 @@ def mae_l2(y_pred: torch.Tensor,
     if ignore_root:
         diff[..., 0, :] = 0.0  
 
-    time_dim = diff.ndim - 3
     error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
-    reduce_dims = [i for i in range(error.dim()) if i != time_dim]
-    error = error.mean(dim=reduce_dims)  # [T]
+    error = error.mean(dim=-2)  # [T] or [n_samples, T]
     
     logger.debug(f"MAE L2 result shape: {error.shape}")
     return error
 
 
 def to_pos(y_pred: torch.Tensor,
-            y_gt: torch.Tensor,
-            rep: str = "quat", 
-            ignore_root: bool = False,
-            **kwargs):
+           y_gt: torch.Tensor = None,
+           rep: str = "quat", 
+           ignore_root: bool = False,
+           **kwargs):
+    """
+    Convert rotation representations to 3D joint positions using FK.
+    
+    Args:
+        y_pred: Predicted rotations, shape [..., J, D] or [n_samples, ..., J, D].
+        y_gt: Ground-truth rotations, same shape as y_pred (optional).
+        rep: Rotation representation ("quat", "euler", "rot6", "rot9", "pos").
+        ignore_root: If True, zero out root rotation before FK.
+        **kwargs: Extra arguments for FK (e.g., convention, degrees).
+
+    Returns:
+        pos_pred: Tensor of positions in meters.
+        pos_gt: Tensor of ground-truth positions in meters (or None if y_gt is None).
+    """
     if rep == "pos":
-        pos_pred, pos_gt = y_pred, y_gt
+        pos_pred = y_pred
+        pos_gt = y_gt
     else:
         pos_pred = fk(y_pred, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
-        pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
-    # Return in m instead of mm since most metrics use m
+        pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs) if y_gt is not None else None
+
+    # Convert from mm to meters
     pos_pred = pos_pred / 1000.0
-    pos_gt   = pos_gt / 1000.0
+    if pos_gt is not None:
+        pos_gt = pos_gt / 1000.0
+
     return pos_pred, pos_gt
 
 
@@ -93,8 +107,7 @@ def mpjpe(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> torch.Tensor:
     joint_equal = [13, 19, 22, 13, 27, 30]
     diff[..., joint_to_ignore] = diff[..., joint_equal]
 
-    reduce_dims = [i for i in range(diff.dim()) if i != 1]
-    error = diff.mean(dim=reduce_dims)*1000.0  # [T], expresesd in mm
+    error = diff.mean(dim=(-1, -3))*1000.0  # [T] or [n_samples, T], expresesd in mm
 
     logger.debug(f"MPJPE result shape: {error.shape}")
     return error

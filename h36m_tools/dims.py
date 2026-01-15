@@ -9,7 +9,10 @@ logger = logging.getLogger(__name__)
 def _create_mask(selected_dims: Iterable[int], total_dims: int, device: torch.device) -> torch.BoolTensor:
     """Create a boolean mask of length total_dims where selected_dims are True."""
     mask = torch.zeros(total_dims, dtype=torch.bool, device=device)
-    mask[list(selected_dims)] = True
+    if isinstance(selected_dims, torch.Tensor):
+        mask[selected_dims.long()] = True  # safe for PyTorch 2.x
+    else:
+        mask[list(selected_dims)] = True
     return mask
 
 

@@ -78,9 +78,9 @@ def fill_static_and_site_joints(rot: torch.Tensor, rep: str, **kwargs) -> torch.
     Uses globals: STATIC_JOINTS, SITE_JOINTS, NUM_JOINTS, TOTAL_JOINTS.
     """
     orig_shape = rot.shape
-    fill = identity_rotation(rep, (rot.shape[0], len(STATIC_JOINTS)), **kwargs)
+    fill = identity_rotation(rep, (*rot.shape[:-2], len(STATIC_JOINTS)), **kwargs)
     rot = add_dims(rot, STATIC_JOINTS, NUM_JOINTS, fill, axis=-2)
-    fill = identity_rotation(rep, (rot.shape[0], len(SITE_JOINTS)), **kwargs)
+    fill = identity_rotation(rep, (*rot.shape[:-2], len(SITE_JOINTS)), **kwargs)
     rot = add_dims(rot, SITE_JOINTS, TOTAL_JOINTS, fill, axis=-2)
     logger.debug(f"fill_static_and_site_joints: tensor shape {orig_shape} -> {rot.shape}")
     return rot
