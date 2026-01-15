@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Compare processed H3.6M data in expmap to reference files from zip")
     parser.add_argument("-r", "--ref_dir", type=Path, default=Path("data/expmap_zip"), help="Reference expmap folder extracted from zip")
-    parser.add_argument("-p", "--processed_dir", type=Path, default=Path("data/protocol1"), help="Processed data directory")
+    parser.add_argument("-p", "--processed_dir", type=Path, default=Path("data/processed"), help="Processed data directory")
     parser.add_argument("-d", "--downsample", type=int, default=DOWNSAMPLE_FACTOR, help="Downsample factor")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 

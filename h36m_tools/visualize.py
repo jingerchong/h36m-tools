@@ -98,10 +98,10 @@ def _draw_skeleton_lines(ax: plt.Axes,
 
 def _update_joint_labels(ax: plt.Axes, 
                         frame: np.ndarray, 
-                        joint_names: List[str], 
+                        joint_names: List[str] = JOINT_NAMES, 
                         text_objs: Optional[List[Text]] = None, 
                         radius: Optional[float] = None,
-                        screen_offset: float = 10) -> List[Text]:
+                        ) -> List[Text]:
     """Draw or update text labels for joints."""
     J = frame.shape[0]
     offset = (radius * 0.05) if radius is not None else 30
@@ -120,7 +120,8 @@ def plot_frames(sequence: RotData,
                 rep: str = "quat",
                 title: str = "",
                 parents: List[int] = PARENTS,
-                right_left_joints_idx=RIGHT_LEFT_JOINTS_IDX,
+                right_left_joints_idx = RIGHT_LEFT_JOINTS_IDX,
+                joint_names: List[str] = JOINT_NAMES,
                 show_joint_names: bool = False,
                 **rep_kwargs
                 ) -> Tuple[plt.Figure, plt.Axes]:
@@ -153,7 +154,7 @@ def plot_frames(sequence: RotData,
         _draw_skeleton_lines(ax, frame, parents, right_joints, alpha=alpha, line_objs=None)
 
     if show_joint_names:
-        _update_joint_labels(ax, seq_pos[-1], JOINT_NAMES, radius=radius)
+        _update_joint_labels(ax, seq_pos[-1], joint_names, radius=radius)
 
     logger.debug(f"plot_frames: plotted {T} superimposed fading frames")
     return fig
@@ -163,9 +164,10 @@ def animate_frames(pred: RotData,
                    rep: str = "quat",
                    gt: Optional[RotData] = None,
                    parents: List[int] = PARENTS,
-                   right_left_joints_idx=RIGHT_LEFT_JOINTS_IDX,
+                   right_left_joints_idx = RIGHT_LEFT_JOINTS_IDX,
                    fps: int = RAW_FPS // DOWNSAMPLE_FACTOR,
                    title: str = "",
+                   joint_names: List[str] = JOINT_NAMES,
                    show_joint_names: bool = False,
                    **rep_kwargs
                    ) -> FuncAnimation:
@@ -211,12 +213,12 @@ def animate_frames(pred: RotData,
 
         pred_lines = _draw_skeleton_lines(ax, pred_pos[t], parents, right_joints, alpha=1.0, line_objs=pred_lines)
         if show_joint_names:
-            text_pred = _update_joint_labels(ax, pred_pos[t], JOINT_NAMES, text_pred, radius=radius)
+            text_pred = _update_joint_labels(ax, pred_pos[t], joint_names, text_pred, radius=radius)
 
         if gt_pos is not None:
             gt_lines = _draw_skeleton_lines(ax, gt_pos[t], parents, right_joints, alpha=0.5, line_objs=gt_lines)
             if show_joint_names:
-                text_gt = _update_joint_labels(ax, gt_pos[t], JOINT_NAMES, text_gt, radius=radius)
+                text_gt = _update_joint_labels(ax, gt_pos[t], joint_names, text_gt, radius=radius)
 
         objs = [line for line in pred_lines if line is not None]
         if gt_lines:

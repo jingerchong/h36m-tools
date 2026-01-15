@@ -1,5 +1,5 @@
 import torch
-from typing import Union, Iterable, List, Sequence, Tuple
+from typing import Union, Iterable, List
 import logging
 
 
@@ -85,35 +85,6 @@ def add_dims(tensor: torch.Tensor,
     logger.debug(f"add_dims: selected_dims={list(selected_dims)}, axis={axis}, "
                  f"tensor_shape={tensor.shape}, output_shape={out.shape}")
     return out
-
-
-def remap_index_group(total_items: int,
-                      removed_indices: Iterable[int],
-                      group: List[Sequence[int]],
-                      ) -> List[Tuple[int, ...]]:
-    """
-    Remap a list of index sequences after removing certain indices.
-
-    Args:
-        total_items: total number of items before removal
-        removed_indices: indices to remove
-        group: list of sequences (e.g., chains or any grouped indices)
-
-    Returns:
-        remapped_group: list of sequences remapped according to the new indices
-    """
-    removed_set = set(removed_indices)
-    mapping = {i: (j := None) if i in removed_set else (j := sum(1 for k in range(i) if k not in removed_set))
-               for i in range(total_items)}
-    
-    remapped_group = [
-        tuple(mapping[i] for i in seq if mapping[i] is not None)
-        for seq in group
-        if any(mapping[i] is not None for i in seq)
-    ]
-
-    logger.debug(f"remap_index_group: original_group={group} -> remapped_group={remapped_group}")
-    return remapped_group
 
 
 def compute_dynamic_dims(std: torch.Tensor, threshold: float = 1e-4) -> List[List[int]]:

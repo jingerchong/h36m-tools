@@ -3,8 +3,9 @@ from pathlib import Path
 import logging
 from tqdm import tqdm
 
-from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS, RAW_FPS, DOWNSAMPLE_FACTOR
+from h36m_tools.metadata import STATIC_JOINTS, SITE_JOINTS, NUM_JOINTS, TOTAL_JOINTS, RAW_FPS, DOWNSAMPLE_FACTOR
 from h36m_tools.files import read_files
+from h36m_tools.rotations import identity_rotation
 from h36m_tools.dims import add_dims
 from h36m_tools.visualize import animate_frames
 from h36m_tools.logging import setup_logger
@@ -41,16 +42,20 @@ def animate_sequence(input_file: Path,
     if n_frames is not None:
         logger.info(f"Animating first {n_frames} of {rot.shape[0]} total frames")
         rot = rot[:n_frames]
-    data = add_dims(rot, STATIC_JOINTS, NUM_JOINTS, 0.0, -2)
 
     rep_dir = input_file.parent.parent.name
     rep, convention, degrees = parse_rep_dir(rep_dir)
     logger.info(f"Parsed representation: rep={rep}, convention='{convention}', degrees={degrees}")
 
+    fill = identity_rotation(rep, (rot.shape[0], len(STATIC_JOINTS)), convention=convention, degrees=degrees)
+    rot = add_dims(rot, STATIC_JOINTS, NUM_JOINTS, fill, -2)
+    fill = identity_rotation(rep, (rot.shape[0], len(SITE_JOINTS)), convention=convention, degrees=degrees)
+    rot = add_dims(rot, SITE_JOINTS, TOTAL_JOINTS, fill, -2)
+
     fps = RAW_FPS // downsample
     default_name = f"{rep_dir}_{input_file.stem}"
-    anim = animate_frames(pred=data, rep=rep, fps=fps, title=default_name, show_joint_names=show_joint_names,
-                          convention=convention if convention else None, degrees=degrees if degrees is not None else None)
+    anim = animate_frames(pred=rot, rep=rep, fps=fps, title=default_name, show_joint_names=show_joint_names,
+                          convention=convention, degrees=degrees)
     logger.info("Animation created")
 
     output_path = Path("outputs") / f"{default_name}.mp4" if output_file is None else output_file

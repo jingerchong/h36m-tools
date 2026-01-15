@@ -10,13 +10,6 @@ from h36m_tools.dims import add_dims
 logger = logging.getLogger(__name__)
 
 
-def _fill_from(out, dst, src, device, axis):
-    dst = torch.tensor(dst, device=device, dtype=torch.long)
-    src = torch.tensor(src, device=device, dtype=torch.long)
-    out.index_copy_(axis, dst, out.index_select(axis, src))
-    return out
-
-
 def mae_l2(y_pred: torch.Tensor,
            y_gt: torch.Tensor,
            rep: str = "quat",
@@ -46,18 +39,9 @@ def mae_l2(y_pred: torch.Tensor,
     euler_gt = quat_to(quat_gt, rep="euler", convention="ZYX")
 
     diff = torch.remainder(euler_gt - euler_pred + torch.pi, 2 * torch.pi) - torch.pi  # [..., J, D]
+
     if ignore_root:
         diff[..., 0, :] = 0.0  
-
-    # Expand to full joint set according to 
-    # Noting that rotation error of child = rotation error of parent
-    # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20H3.6M%20Deterministic%20Evaluation.ipynb
-    joint_dim = diff.ndim - 2
-    device = diff.device
-    diff = add_dims(diff, STATIC_JOINTS, NUM_JOINTS, axis=joint_dim)
-    diff = _fill_from(diff, STATIC_JOINTS, STATIC_PARENTS, device, joint_dim)
-    diff = add_dims(diff, SITE_JOINTS, TOTAL_JOINTS, axis=joint_dim)
-    diff = _fill_from(diff, SITE_JOINTS, SITE_PARENTS, device, joint_dim)
 
     time_dim = diff.ndim - 3
     error = diff.view(*diff.shape[:-2], -1).norm(dim=-1)  # [...], L2 over J*D
@@ -68,13 +52,25 @@ def mae_l2(y_pred: torch.Tensor,
     return error
 
 
-def simlpe_mpjpe(y_pred: torch.Tensor,
+def _to_pos(y_pred: torch.Tensor,
+            y_gt: torch.Tensor,
+            rep: str = "quat", 
+            **kwargs):
+    if rep == "pos":
+        pos_pred, pos_gt = y_pred, y_gt
+    else:
+        pos_pred = fk(y_pred, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
+        pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
+    return pos_pred, pos_gt
+
+
+def mpjpe(y_pred: torch.Tensor,
           y_gt: torch.Tensor,
           rep: str = "quat",
           ignore_root: bool = False,
+          return_pos: bool = False,
           **kwargs) -> torch.Tensor:
     """
-    Based on siMLPe https://arxiv.org/abs/2207.01567
     Compute Mean Per-Joint Position Error (MPJPE) between predicted and ground-truth poses.
     Converts inputs to 3D joint positions using differentiable FK.
 
@@ -89,26 +85,29 @@ def simlpe_mpjpe(y_pred: torch.Tensor,
     Returns:
         Tensor of shape [..., T], mean per joint position error per time step.
     """
-    pos_pred = fk(y_pred, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
-    pos_gt = fk(y_gt, rep=rep, parents=PARENTS, offsets=OFFSETS, ignore_root=ignore_root, **kwargs)
-
+    pos_pred, pos_gt = _to_pos(y_pred, y_gt, rep, **kwargs)
     diff = (pos_gt - pos_pred).norm(dim=-1)    # [..., J]
     if ignore_root:
         diff[..., 0] = 0.0  
 
     # Evaluation protocol as defined in
     # https://github.com/dulucas/siMLPe/blob/main/exps/baseline_h36m/test.py
+    # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20H3.6M%20Evaluation%20Comparison%20HistRepItself.ipynb
     joint_to_ignore = [16, 20, 23, 24, 28, 31]
     joint_equal = [13, 19, 22, 13, 27, 30]
-    diff = add_dims(diff, STATIC_JOINTS, NUM_JOINTS, axis=-1)
-    diff = add_dims(diff, SITE_JOINTS, TOTAL_JOINTS, axis=-1)
     diff[..., joint_to_ignore] = diff[..., joint_equal]
 
     reduce_dims = [i for i in range(diff.dim()) if i != 1]
     error = diff.mean(dim=reduce_dims)  # [T]
 
     logger.debug(f"MPJPE result shape: {error.shape}")
-    return error
+    return error, pos_pred, pos_gt if return_pos else error
+
+
+# Ignoring certain joints in generative eval according to
+# https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
+IGNORED_JOINTS = {0, 4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31}
+KEPT_JOINTS = [x for x in range(TOTAL_JOINTS) if x not in IGNORED_JOINTS]
 
 
 def nll_kde(y_pred_gen: torch.Tensor,
@@ -165,15 +164,7 @@ def nll_kde(y_pred_gen: torch.Tensor,
         nll_list.append(-kde_ll)  # [B, T, J]
 
     nll_all = torch.cat(nll_list, dim=0)  # [N, T, J]
-
-    # Ignoring certain joints according to
-    # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
-    # Changed 16 to 15, assumed typo since 16 left shoulder is not static but 15 site is
-    ignored_joints = {0, 4, 5, 9, 10, 11, 15, 20, 21, 22, 23, 24, 28, 29, 30, 31} 
-    kept_joints = [x for x in range(TOTAL_JOINTS) if x not in ignored_joints]
-    nll_all = add_dims(nll_all, STATIC_JOINTS, NUM_JOINTS, axis=-1)
-    nll_all = add_dims(nll_all, SITE_JOINTS, TOTAL_JOINTS, axis=-1)
-    nll_all = nll_all[..., kept_joints]
+    nll_all = nll_all[..., KEPT_JOINTS]
 
     threshold = 20.0
     clamped = nll_all.clip(max=threshold)
@@ -183,3 +174,42 @@ def nll_kde(y_pred_gen: torch.Tensor,
 
     logger.debug(f"NLL-KDE result shape: {error.shape}")
     return error
+
+
+
+# def compute_diversity(pred, *args):
+#     if pred.shape[0] == 1:
+#         return 0.0
+#     dist = pdist(pred.reshape(pred.shape[0], -1))
+#     diversity = dist.mean().item()
+#     return diversity
+
+
+# def compute_ade(pred, gt, *args):
+#     diff = pred - gt
+#     dist = np.linalg.norm(diff, axis=2).mean(axis=1)
+#     return dist.min()
+
+
+# def compute_fde(pred, gt, *args):
+#     diff = pred - gt
+#     dist = np.linalg.norm(diff, axis=2)[:, -1]
+#     return dist.min()
+
+
+# def compute_mmade(pred, gt, gt_multi):
+#     gt_dist = []
+#     for gt_multi_i in gt_multi:
+#         dist = compute_ade(pred, gt_multi_i)
+#         gt_dist.append(dist)
+#     gt_dist = np.array(gt_dist).mean()
+#     return gt_dist
+
+
+# def compute_mmfde(pred, gt, gt_multi):
+#     gt_dist = []
+#     for gt_multi_i in gt_multi:
+#         dist = compute_fde(pred, gt_multi_i)
+#         gt_dist.append(dist)
+#     gt_dist = np.array(gt_dist).mean()
+#     return gt_dist

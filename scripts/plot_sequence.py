@@ -2,8 +2,9 @@ import argparse
 from pathlib import Path
 import logging
 
-from h36m_tools.metadata import STATIC_JOINTS, NUM_JOINTS
+from h36m_tools.metadata import STATIC_JOINTS, SITE_JOINTS, NUM_JOINTS, TOTAL_JOINTS
 from h36m_tools.files import read_files
+from h36m_tools.rotations import identity_rotation
 from h36m_tools.dims import add_dims
 from h36m_tools.visualize import plot_frames
 from h36m_tools.logging import setup_logger
@@ -38,7 +39,7 @@ def plot_sequence(input_file: Path,
         return
 
     logger.info(f"Loading file: {input_file}")
-    rot = read_files(input_file)  # [T, D_rot]
+    rot = read_files(input_file)  # [T, J, D_rot]
 
     if start_frame >= rot.shape[0]:
         logger.error(f"start_frame {start_frame} exceeds sequence length {rot.shape[0]}")
@@ -46,18 +47,20 @@ def plot_sequence(input_file: Path,
     end_frame = min(start_frame + n_frames, rot.shape[0])
     rot = rot[start_frame:end_frame]
     logger.info(f"Plotting frames {start_frame} to {end_frame - 1} (total {len(rot)} frames)")
-    data = add_dims(rot, STATIC_JOINTS, NUM_JOINTS, 0.0, -2)
-
+    
     rep_dir = input_file.parent.parent.name
     rep, convention, degrees = parse_rep_dir(rep_dir)
     logger.info(f"Parsed representation: rep={rep}, convention='{convention}', degrees={degrees}")
 
-    default_name = f"{rep_dir}_{input_file.stem}_f{start_frame}"
-    fig = plot_frames(data, rep=rep, title=default_name, show_joint_names=show_joint_names,
-                      convention=convention if convention else None,
-                      degrees=degrees if degrees is not None else None)
+    fill = identity_rotation(rep, (rot.shape[0], len(STATIC_JOINTS)), convention=convention, degrees=degrees)
+    rot = add_dims(rot, STATIC_JOINTS, NUM_JOINTS, fill, -2)
+    fill = identity_rotation(rep, (rot.shape[0], len(SITE_JOINTS)), convention=convention, degrees=degrees)
+    rot = add_dims(rot, SITE_JOINTS, TOTAL_JOINTS, fill, -2)
 
-    
+    default_name = f"{rep_dir}_{input_file.stem}_f{start_frame}"
+    fig = plot_frames(rot, rep, title=default_name, show_joint_names=show_joint_names,
+                      convention=convention, degrees=degrees)
+
     output_file = Path("outputs") / f"{default_name}.png" if output_file is None else output_file
     output_file.parent.mkdir(parents=True, exist_ok=True)
 

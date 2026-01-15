@@ -64,11 +64,12 @@ def load_raw(root_dir: Union[str, Path] = Path("data/raw"),
     return data
 
 
-def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/protocol1"),
+def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/processed"),
                    rep: str = "expmap",
                    convention: str = "ZXY",
                    degrees: bool = False,
                    include_stats: bool = False,
+                   skip_11dir2: bool = True,
                    ) -> Union[Tuple[List[torch.Tensor], List[torch.Tensor]],
                               Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor, torch.Tensor]]:
     """
@@ -82,7 +83,7 @@ def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/protocol1"
             std.pt
 
     Args:
-        root_dir (Path): Base processed directory (e.g. h36m-tools/data/protocol1)
+        root_dir (Path): Base processed directory (e.g. h36m-tools/data/processed)
         rep (str): Representation type ("expmap", "quat", "rot6", ...)
         convention (str): Euler convention if used during preprocessing
         degrees (bool): Whether Euler was saved in degrees
@@ -104,7 +105,9 @@ def load_processed(root_dir: Union[str, Path] = Path("h36m-tools/data/protocol1"
         raise FileNotFoundError(f"Missing train/test folders inside {rep_dir}")
 
     train = read_files(sorted(train_dir.glob("*.pt")))
-    test = read_files(sorted(test_dir.glob("*.pt")))
+    test_files = sorted(f for f in test_dir.glob("*.pt")
+                        if not (skip_11dir2 and "S11_directions_2.pt" in f.name))
+    test = read_files(test_files)
 
     if include_stats:
         mean = read_files(rep_dir / "mean.pt")

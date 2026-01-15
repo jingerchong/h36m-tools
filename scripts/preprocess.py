@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="H3.6M preprocessing script")
     parser.add_argument("-i", "--input", type=Path, default=Path("data/raw"), help="Raw H3.6M data directory")
-    parser.add_argument("-o", "--output", type=Path, default=Path("data/protocol1"), help="Processed data directory")
+    parser.add_argument("-o", "--output", type=Path, default=Path("data/processed"), help="Processed data directory")
     parser.add_argument("-r", "--rep", type=str, default="expmap", help="Target rotation representation")
     parser.add_argument("-p", "--protocol", type=int, default=1, help="Protocol number for train/test split")
     parser.add_argument("-d", "--downsample", type=int, default=DOWNSAMPLE_FACTOR, help="Downsample factor")
