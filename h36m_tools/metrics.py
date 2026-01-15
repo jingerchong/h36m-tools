@@ -3,7 +3,7 @@ import logging
 
 from h36m_tools.rotations import to_quat, quat_to
 from h36m_tools.kinematics import fk
-from h36m_tools.metadata import PARENTS, OFFSETS, TOTAL_JOINTS
+from h36m_tools.metadata import PARENTS, OFFSETS, TOTAL_JOINTS, DOWNSAMPLE_FACTOR
 
 
 logger = logging.getLogger(__name__)
@@ -183,7 +183,19 @@ def nll_kde(y_pred_gen: torch.Tensor,
     return error
 
 
-def apd(y_pos_pred: torch.Tensor) -> float:
+def _upsample_trajectory(y_down: torch.Tensor, factor: int = DOWNSAMPLE_FACTOR) -> torch.Tensor:
+    """
+    Upsample a downsampled trajectory by a given factor.
+    """
+    n_samples, B, T_down, J, D = y_down.shape
+    T_full = int(T_down * factor)
+    y_flat = y_down.permute(0, 1, 3, 4, 2).reshape(n_samples * B * J * D, T_down, 1)  # [N, T, 1]
+    y_up_flat = torch.nn.functional.interpolate(y_flat, size=T_full, mode='linear', align_corners=True)
+    y_upsampled = y_up_flat.reshape(n_samples, B, J, D, T_full).permute(0, 1, 4, 2, 3)  # [S, B, T_full, J, D]
+    return y_upsampled
+
+
+def apd(pos_pred: torch.Tensor) -> float:
     """
     Compute the Average Pairwise Distance (APD) between multiple predicted sequences.
 
@@ -193,13 +205,14 @@ def apd(y_pos_pred: torch.Tensor) -> float:
     Returns:
         float: Mean APD across batch, averaged over samples per batch element.
     """
-    n_samples, B = y_pos_pred.shape[0], y_pos_pred.shape[1]
+    n_samples, B = pos_pred.shape[0], pos_pred.shape[1]
     if n_samples == 1:
         return 0.0
-
+    
+    pos_pred = _upsample_trajectory(pos_pred[..., KEPT_JOINTS, :])
     apd_total = 0.0
     for b in range(B):
-        traj_flat = y_pos_pred[:, b].reshape(n_samples, -1)  # [S, F]
+        traj_flat = pos_pred[:, b].reshape(n_samples, -1)  # [S, F]
         dist = torch.pdist(traj_flat)  # [S*(S-1)/2]
         apd_total += dist.mean()
     return (apd_total / B).item()
@@ -216,6 +229,8 @@ def ade(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
     Returns:
         float: Minimum ADE over all predicted samples (best-of-K) averaged over batch.
     """
+    pos_pred = _upsample_trajectory(pos_pred[..., KEPT_JOINTS, :])
+    pos_gt = _upsample_trajectory(pos_gt[None, ..., KEPT_JOINTS, :])[0]
     pos_pred_flat = pos_pred.flatten(start_dim=-2)  # [n_samples, B, T, J*D]
     pos_gt_flat = pos_gt.flatten(start_dim=-2)      # [B, T, J*D]
 
@@ -241,6 +256,8 @@ def fde(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> float:
     Returns:
         float: Minimum FDE over all predicted samples at the final timestep, averaged over batch.
     """
+    pos_pred = pos_pred[..., KEPT_JOINTS, :]
+    pos_gt = pos_gt[..., KEPT_JOINTS, :]
     pos_pred_flat = pos_pred.flatten(start_dim=-2)  # [n_samples, B, T, J*D]
     pos_gt_flat = pos_gt.flatten(start_dim=-2)      # [B, T, J*D]
 
