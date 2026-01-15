@@ -183,20 +183,7 @@ def nll_kde(y_pred_gen: torch.Tensor,
     return error
 
 
-def _upsample_trajectory(y_down: torch.Tensor, factor: int = DOWNSAMPLE_FACTOR) -> torch.Tensor:
-    """
-    Upsample a downsampled trajectory by a given factor.
-    """
-    n_samples, B, T_down, J, D = y_down.shape
-    T_full = int(T_down * factor)
-    y_perm = y_down.permute(0, 1, 3, 4, 2)  # [S, B, J, D, T_down]
-    y_flat = y_perm.reshape(n_samples * B, J * D, T_down)
-    y_up_flat = torch.nn.functional.interpolate(y_flat, size=T_full, mode='linear', align_corners=True)
-    y_upsampled = y_up_flat.reshape(n_samples, B, J, D, T_full).permute(0, 1, 4, 2, 3)
-    return y_upsampled
-
-
-def apd(pos_pred: torch.Tensor) -> float:
+def apd(y_pos_pred: torch.Tensor) -> float:
     """
     Compute the Average Pairwise Distance (APD) between multiple predicted sequences.
 
