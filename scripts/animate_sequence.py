@@ -36,7 +36,7 @@ def animate_sequence(input_file: Path,
         return
 
     logger.info(f"Loading file: {input_file}")
-    rot = read_files(input_file)   # [T, D_rot]
+    rot = read_files(input_file)   
     if n_frames is not None:
         logger.info(f"Animating first {n_frames} of {rot.shape[0]} total frames")
         rot = rot[:n_frames]
