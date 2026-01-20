@@ -235,3 +235,85 @@ def animate_frames(pred: RotData,
     plt.close(fig)  
     logger.debug(f"animate_frames: created animation for {pred_pos.shape[0]} frames at {fps} fps")  
     return anim
+
+
+def animate_frames(gt: RotData,
+                   pred: Optional[RotData] = None,
+                   rep: str = "quat",
+                   parents: List[int] = PARENTS,
+                   right_left_joints_idx = RIGHT_LEFT_JOINTS_IDX,
+                   fps: int = RAW_FPS // DOWNSAMPLE_FACTOR,
+                   title: str = "",
+                   joint_names: List[str] = JOINT_NAMES,
+                   show_joint_names: bool = False,
+                   **rep_kwargs
+                   ) -> FuncAnimation:
+    """
+    Animate ground truth skeleton and optional predicted sequences.
+    
+    GT is full opacity, Pred is semi-transparent.
+    Pred supports multiple samples: shape [n_samples, T, J, D].
+
+    Args:
+        gt: Ground truth rotation tensor [T, J, D]
+        pred: Predicted rotation tensor [n_samples, T, J, D] or [T, J, D]
+        parents: Skeleton parent indices (default from metadata)
+        right_left_joints_idx: (right, left) joint index pairs for coloring
+        fps: Animation frames per second
+        title: Figure title
+        show_joint_names: Whether to render joint name labels
+
+    Returns:
+        FuncAnimation object
+    """
+    gt_pos = _to_numpy_pos(gt, rep=rep, **rep_kwargs)
+
+    pred_pos = None
+    if pred is not None:
+        pred_pos = _to_numpy_pos(pred, rep=rep, **rep_kwargs)
+        if pred_pos.ndim == 3:
+            pred_pos = pred_pos[None]  # add n_samples=1 dimension
+        n_samples = pred_pos.shape[0]
+    else:
+        n_samples = 0
+
+    sequences = [gt_pos] + ([pred_pos[i] for i in range(n_samples)] if n_samples > 0 else [])
+    right_joints = _get_right_joints(right_left_joints_idx)
+    center, radius = _compute_bounds(sequences)
+    fig, ax = _setup_axes(center=center, radius=radius, title=title)
+
+    T, J = gt_pos.shape[:2]
+    gt_lines = [None] * J
+    pred_lines_list = [[None] * J for _ in range(n_samples)] if n_samples > 0 else []
+
+    text_gt = None
+    text_pred_list = [None] * n_samples
+
+    def update(t: int):
+        nonlocal gt_lines, pred_lines_list, text_gt, text_pred_list
+
+        gt_lines = _draw_skeleton_lines(ax, gt_pos[t], parents, right_joints, alpha=1.0, line_objs=gt_lines)
+        if show_joint_names:
+            text_gt = _update_joint_labels(ax, gt_pos[t], joint_names, text_gt, radius=radius)
+
+        for i in range(n_samples):
+            pred_lines_list[i] = _draw_skeleton_lines(ax, pred_pos[i, t], parents, right_joints,
+                                                      alpha=0.5, line_objs=pred_lines_list[i])
+            if show_joint_names:
+                text_pred_list[i] = _update_joint_labels(ax, pred_pos[i, t], joint_names, text_pred_list[i], radius=radius)
+
+        objs = [line for line in gt_lines if line is not None]
+        for pred_lines in pred_lines_list:
+            objs.extend([line for line in pred_lines if line is not None])
+        if show_joint_names:
+            objs.extend(text_gt)
+            for text_pred in text_pred_list:
+                if text_pred:
+                    objs.extend(text_pred)
+
+        return objs
+
+    anim = FuncAnimation(fig, update, frames=T, interval=1000 / fps, blit=True, repeat=True)
+    plt.close(fig)
+    logger.debug(f"animate_frames: created animation for {T} frames at {fps} fps")
+    return anim

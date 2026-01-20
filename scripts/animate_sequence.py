@@ -47,7 +47,7 @@ def animate_sequence(input_file: Path,
 
     fps = RAW_FPS // downsample
     default_name = f"{rep_dir}_{input_file.stem}"
-    anim = animate_frames(pred=rot, rep=rep, fps=fps, title=default_name, show_joint_names=show_joint_names,
+    anim = animate_frames(gt=rot, rep=rep, fps=fps, title=default_name, show_joint_names=show_joint_names,
                           convention=convention, degrees=degrees)
     logger.info("Animation created")
 
