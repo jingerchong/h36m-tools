@@ -58,12 +58,25 @@ def _setup_axes(fig: Optional[plt.Figure] = None,
         ax.set_zlim(center[2] - radius, center[2] + radius)
         ax.set_autoscale_on(False)
 
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_title(title, fontsize=18)
-    ax.set_box_aspect([1,1,1])  
-    
+    ax.set_xlabel("X", fontsize=27, fontname="Arial", labelpad=6)
+    ax.set_ylabel("Y", fontsize=27, fontname="Arial", labelpad=6)
+    ax.set_zlabel("Z", fontsize=27, fontname="Arial", labelpad=6)
+
+    ax.set_xticks(np.linspace(center[0]-radius, center[0]+radius, 5))
+    ax.set_yticks(np.linspace(center[1]-radius, center[1]+radius, 5))
+    ax.set_zticks(np.linspace(center[2]-radius, center[2]+radius, 5))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+
+    ax.grid(True, linestyle="--", linewidth=0.4, alpha=0.25)
+
+    ax.set_title(title, fontsize=36, fontname="Arial", pad=0)
+
+    ax.set_box_aspect([1, 1, 1])
+    fig.subplots_adjust(left=0, right=1, top=0.85, bottom=0)
+    ax.margins(0)
+
     return fig, ax
 
 
@@ -108,7 +121,7 @@ def _update_joint_labels(ax: plt.Axes,
     offset = (radius * 0.05) if radius is not None else 30
     if text_objs is None:
         text_objs = [ax.text(frame[j, 0], frame[j, 1], frame[j, 2] + offset,
-                     joint_names[j], fontsize=8, ha="center", va="center") for j in range(J)]
+                     joint_names[j], fontsize=12, fontname="Arial", ha="center", va="center") for j in range(J)]
         return text_objs
     for j in range(J):
         x, y, z = frame[j]
@@ -159,82 +172,6 @@ def plot_frames(sequence: RotData,
 
     logger.debug(f"plot_frames: plotted {T} superimposed fading frames")
     return fig
-
-
-def animate_frames(pred: RotData,
-                   rep: str = "quat",
-                   gt: Optional[RotData] = None,
-                   parents: List[int] = PARENTS,
-                   right_left_joints_idx = RIGHT_LEFT_JOINTS_IDX,
-                   fps: int = RAW_FPS // DOWNSAMPLE_FACTOR,
-                   title: str = "",
-                   joint_names: List[str] = JOINT_NAMES,
-                   show_joint_names: bool = False,
-                   **rep_kwargs
-                   ) -> FuncAnimation:
-    """
-    Animate predicted and optional ground truth skeleton sequences.
-    
-    Creates a matplotlib animation showing skeleton motion over time. If ground truth
-    is provided, it's overlaid with 50% transparency for comparison.
-    
-    IMPORTANT: Keep a reference to the returned animation object to prevent garbage
-    collection, which would stop the animation.
-
-    Args:
-        pred: Predicted rotation tensor [T, J, D]
-        gt: Ground truth rotation tensor [T, J, D], optional for comparison
-        parents: Skeleton parent indices (default from metadata)
-        right_left_joints_idx: (right, left) joint index pairs for coloring
-        fps: Animation frames per second
-        title: Figure title
-        show_joint_names: Whether to render joint name labels
-
-    Returns:
-        FuncAnimation object (must keep reference to prevent garbage collection)
-    """
-    pred_pos = _to_numpy_pos(pred, rep=rep, **rep_kwargs)
-    gt_pos = _to_numpy_pos(gt, rep=rep, **rep_kwargs) if gt is not None else None
-
-    sequences = [pred_pos] + ([gt_pos] if gt_pos is not None else [])
-    right_joints = _get_right_joints(right_left_joints_idx)
-
-    center, radius = _compute_bounds(sequences)
-    fig, ax = _setup_axes(center=center, radius=radius, title=title)
-
-    J = pred_pos.shape[1] 
-    pred_lines = [None] * J
-    gt_lines = [None] * J if gt_pos is not None else None
-    
-    text_pred = None
-    text_gt = None
-
-    def update(t: int):
-        nonlocal pred_lines, gt_lines, text_pred, text_gt
-
-        pred_lines = _draw_skeleton_lines(ax, pred_pos[t], parents, right_joints, alpha=1.0, line_objs=pred_lines)
-        if show_joint_names:
-            text_pred = _update_joint_labels(ax, pred_pos[t], joint_names, text_pred, radius=radius)
-
-        if gt_pos is not None:
-            gt_lines = _draw_skeleton_lines(ax, gt_pos[t], parents, right_joints, alpha=0.5, line_objs=gt_lines)
-            if show_joint_names:
-                text_gt = _update_joint_labels(ax, gt_pos[t], joint_names, text_gt, radius=radius)
-
-        objs = [line for line in pred_lines if line is not None]
-        if gt_lines:
-            objs.extend([line for line in gt_lines if line is not None])
-        if show_joint_names and text_pred:
-            objs.extend(text_pred)
-            if text_gt:
-                objs.extend(text_gt)
-        
-        return objs
-
-    anim = FuncAnimation(fig, update, frames=pred_pos.shape[0], interval=1000 / fps, blit=True, repeat=True) 
-    plt.close(fig)  
-    logger.debug(f"animate_frames: created animation for {pred_pos.shape[0]} frames at {fps} fps")  
-    return anim
 
 
 def animate_frames(gt: RotData,
@@ -297,8 +234,9 @@ def animate_frames(gt: RotData,
             text_gt = _update_joint_labels(ax, gt_pos[t], joint_names, text_gt, radius=radius)
 
         for i in range(n_samples):
+            pred_alpha = 0.5/n_samples
             pred_lines_list[i] = _draw_skeleton_lines(ax, pred_pos[i, t], parents, right_joints,
-                                                      alpha=0.5, line_objs=pred_lines_list[i])
+                                                      alpha=pred_alpha, line_objs=pred_lines_list[i])
             if show_joint_names:
                 text_pred_list[i] = _update_joint_labels(ax, pred_pos[i, t], joint_names, text_pred_list[i], radius=radius)
 
