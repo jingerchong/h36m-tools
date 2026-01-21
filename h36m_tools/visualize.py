@@ -85,7 +85,8 @@ def _draw_skeleton_lines(ax: plt.Axes,
                          parents: List[int], 
                          right_joints: List[int], 
                          alpha: float = 1.0, 
-                         line_objs: Optional[List[Optional[Line2D]]] = None) -> List[Optional[plt.Line2D]]:
+                         line_objs: Optional[List[Optional[Line2D]]] = None,
+                         colors = ("#E69F00", "#0072B2")) -> List[Optional[plt.Line2D]]:
     """Draw or update skeleton lines connecting joints."""
     J = frame.shape[0]
     if line_objs is None:
@@ -98,7 +99,7 @@ def _draw_skeleton_lines(ax: plt.Axes,
         xs = [frame[j, 0], frame[p, 0]]
         ys = [frame[j, 1], frame[p, 1]]
         zs = [frame[j, 2], frame[p, 2]]
-        color = "red" if j in right_joints else "gray"
+        color = colors[0] if j in right_joints else colors[1]
         if line_objs[j] is None:
             line_objs[j] = ax.plot(xs, ys, zs, lw=2, c=color, alpha=alpha)[0]
         else:
@@ -228,18 +229,18 @@ def animate_frames(gt: RotData,
 
     def update(t: int):
         nonlocal gt_lines, pred_lines_list, text_gt, text_pred_list
-
+        for i in range(n_samples):
+            
+            pred_alpha = 0.75 if n_samples == 1 else 0.125
+            pred_lines_list[i] = _draw_skeleton_lines(ax, pred_pos[i, t], parents, right_joints,
+                                                      alpha=pred_alpha, line_objs=pred_lines_list[i], colors=("#FFB233", "#00CFFF"))
+            if show_joint_names:
+                text_pred_list[i] = _update_joint_labels(ax, pred_pos[i, t], joint_names, text_pred_list[i], radius=radius)
+        
         gt_lines = _draw_skeleton_lines(ax, gt_pos[t], parents, right_joints, alpha=1.0, line_objs=gt_lines)
         if show_joint_names:
             text_gt = _update_joint_labels(ax, gt_pos[t], joint_names, text_gt, radius=radius)
-
-        for i in range(n_samples):
-            pred_alpha = 0.5/n_samples
-            pred_lines_list[i] = _draw_skeleton_lines(ax, pred_pos[i, t], parents, right_joints,
-                                                      alpha=pred_alpha, line_objs=pred_lines_list[i])
-            if show_joint_names:
-                text_pred_list[i] = _update_joint_labels(ax, pred_pos[i, t], joint_names, text_pred_list[i], radius=radius)
-
+                
         objs = [line for line in gt_lines if line is not None]
         for pred_lines in pred_lines_list:
             objs.extend([line for line in pred_lines if line is not None])

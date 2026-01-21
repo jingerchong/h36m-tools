@@ -115,73 +115,56 @@ def mpjpe(pos_pred: torch.Tensor, pos_gt: torch.Tensor) -> torch.Tensor:
 # https://github.com/TUM-AAS/motron-cvpr22/blob/master/notebooks/RES%20Eval%20NLL.ipynb
 IGNORED_JOINTS = {0, 4, 5, 9, 10, 11, 16, 20, 21, 22, 23, 24, 28, 29, 30, 31}
 KEPT_JOINTS = [x for x in range(TOTAL_JOINTS) if x not in IGNORED_JOINTS]
+NLL_BATCH_SIZE = 20
+NLL_THRESHOLD = 20.0
 
-
-def nll_kde(y_pred_gen: torch.Tensor,
-            y_gt_gen: torch.Tensor,
-            rep: str = "quat",
-            ignore_root: bool = False,
-            **kwargs) -> torch.Tensor:
+def nll_kde(pos_pred: torch.Tensor,
+            pos_gt: torch.Tensor,
+            ) -> torch.Tensor:
     """
     Fully vectorized batch-local KDE negative log-likelihood (NLL) in position space.
 
     Args:
-        y_pred_gen: Generator yielding [n_samples, B, T, J, D] per batch.
-        y_gt_gen: Generator yielding [B, T, J, D] per batch.
-        rep: Rotation representation ("quat", "euler", "expmap", "rot6", "rot9").
-        ignore_root: If True, zero out root rotation before FK.
-        **kwargs: Forwarded to `fk()` (e.g., convention, degrees).
+        pos_pred: Generator yielding [n_samples, B, T, J, D] per batch.
+        pos_gt: Generator yielding [B, T, J, D] per batch.
 
     Returns:
         Tensor of shape [T], mean NLL over joints and batches per time step.
     """
-    nll_list = []
+    device = pos_gt.device
+    n_samples, B, T, J, D = pos_pred.shape
 
-    for i, (y_pred_batch, y_gt_batch) in enumerate(zip(y_pred_gen, y_gt_gen)):
-        device = y_gt_batch.device
+    # Compute mean and covariance
+    mean = pos_pred.mean(dim=0)  # [B, T, J, D]
+    diff = pos_pred - mean.unsqueeze(0)  # [n_samples, B, T, J, D]
+    cov = torch.einsum("sbtjd,sbtje->btjde", diff, diff) / n_samples  # [B, T, J, D, D]
 
-        pos_pred, pos_gt = to_pos(y_pred_batch, y_gt_batch, rep, ignore_root, **kwargs)  # [n_samples, B, T, J, D], [B, T, J, D]
-        n_samples, B, T, J, D = pos_pred.shape
+    # Scott's rule for bandwidth
+    cov = cov * (n_samples ** (-2.0 / (D + 4)))
 
-        # Compute mean and covariance
-        mean = pos_pred.mean(dim=0)  # [B, T, J, D]
-        diff = pos_pred - mean.unsqueeze(0)  # [n_samples, B, T, J, D]
-        cov = torch.einsum("sbtjd,sbtje->btjde", diff, diff) / n_samples  # [B, T, J, D, D]
+    # Regularize covariance
+    eps = 1e-14
+    eye = torch.eye(D, device=device).view(1, 1, 1, D, D)
+    L = torch.linalg.cholesky(cov + eps * eye)  # [B, T, J, D, D]
 
-        # Scott's rule for bandwidth
-        cov = cov * (n_samples ** (-2.0 / (D + 4)))
+    # Compute log-likelihood
+    diff_gt = pos_gt.unsqueeze(0) - pos_pred  # [n_samples, B, T, J, D]
+    x = torch.linalg.solve_triangular(L.unsqueeze(0), diff_gt.unsqueeze(-1), upper=False)
+    quad = (x**2).sum(dim=(-2, -1))  # [n_samples, B, T, J]
 
-        # Regularize covariance
-        eps = 1e-14
-        eye = torch.eye(D, device=device).view(1, 1, 1, D, D)
-        L = torch.linalg.cholesky(cov + eps * eye)  # [B, T, J, D, D]
+    logdet = 2 * torch.sum(torch.log(torch.diagonal(L, dim1=-2, dim2=-1)), dim=-1)  # [B, T, J]
+    log_k = -0.5 * (quad + logdet.unsqueeze(0) + D * torch.log(torch.tensor(2 * torch.pi, device=device)))
 
-        # Compute log-likelihood
-        diff_gt = pos_gt.unsqueeze(0) - pos_pred  # [n_samples, B, T, J, D]
-        x = torch.linalg.solve_triangular(L.unsqueeze(0), diff_gt.unsqueeze(-1), upper=False)
-        quad = (x**2).sum(dim=(-2, -1))  # [n_samples, B, T, J]
+    # Log-sum-exp over samples
+    kde_ll = torch.logsumexp(log_k, dim=0) - torch.log(torch.tensor(float(n_samples), device=device))
+    nll = -kde_ll  # [B, T, J]
+    nll = nll[..., KEPT_JOINTS]
 
-        logdet = 2 * torch.sum(torch.log(torch.diagonal(L, dim1=-2, dim2=-1)), dim=-1)  # [B, T, J]
-        log_k = -0.5 * (quad + logdet.unsqueeze(0) + D * torch.log(torch.tensor(2 * torch.pi, device=device)))
-
-        # Log-sum-exp over samples
-        kde_ll = torch.logsumexp(log_k, dim=0) - torch.log(torch.tensor(float(n_samples), device=device))
-        nll_list.append(-kde_ll)  # [B, T, J]
-
-        logger.debug(
-            f"nll_kde batch={i}: pos_pred {pos_pred.shape}, pos_gt {pos_gt.shape} -> "
-            f"kde_ll shape={kde_ll.shape}, raw NLL stats: min={(-kde_ll).min().item():.4f}, max={(-kde_ll).max().item():.4f}, mean={(-kde_ll).mean().item():.4f}"
-        )
-
-    nll_all = torch.cat(nll_list, dim=0)  # [N, T, J]
-    nll_all = nll_all[..., KEPT_JOINTS]
-
-    threshold = 20.0
-    clamped = nll_all.clip(max=threshold)    
+    clamped = nll.clip(max=NLL_THRESHOLD)    
     error = clamped.sum(dim=2).mean(dim=0)  # [T]
 
     logger.debug(
-        f"nll_kde final: clamped > threshold {(nll_all > threshold).sum().item()} / {nll_all.numel()} elements -> "
+        f"nll_kde batch: clamped > threshold {(nll > NLL_THRESHOLD).sum().item()} / {nll.numel()} elements -> "
         f"clamped shape={clamped.shape}"
     )
     return error
